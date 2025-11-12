@@ -112,30 +112,31 @@ export class SupabaseService {
 			return;
 		}
 
-		// Determine the obsidianId from the first chunk
-		const obsidianId = chunks[0].metadata.obsidianId;
+                // Determine the obsidianId from the first chunk
+                const obsidianId = chunks[0].metadata.obsidianId;
+                const operationKey = chunks[0].metadata.path ?? obsidianId;
 
-		// Check if a delete operation is already in progress for this file
-		if (this.deleteOperationsInProgress.get(obsidianId)) {
-			console.warn(`Delete operation already in progress for ${obsidianId}. Queueing update.`);
-			// Wait for previous operation to complete with exponential backoff
-			let retryCount = 0;
-			const maxRetries = 5;
-			const baseDelay = 500; // ms
+                // Check if a delete operation is already in progress for this file
+                if (this.deleteOperationsInProgress.get(operationKey)) {
+                        console.warn(`Delete operation already in progress for ${operationKey}. Queueing update.`);
+                        // Wait for previous operation to complete with exponential backoff
+                        let retryCount = 0;
+                        const maxRetries = 5;
+                        const baseDelay = 500; // ms
 
-			while (this.deleteOperationsInProgress.get(obsidianId) && retryCount < maxRetries) {
-				const delay = baseDelay * Math.pow(2, retryCount);
-				await new Promise(resolve => setTimeout(resolve, delay));
-				retryCount++;
-			}
+                        while (this.deleteOperationsInProgress.get(operationKey) && retryCount < maxRetries) {
+                                const delay = baseDelay * Math.pow(2, retryCount);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                retryCount++;
+                        }
 
-			if (this.deleteOperationsInProgress.get(obsidianId)) {
-				throw new Error(`Deletion operation timeout for ${obsidianId}`);
-			}
-		}
+                        if (this.deleteOperationsInProgress.get(operationKey)) {
+                                throw new Error(`Deletion operation timeout for ${operationKey}`);
+                        }
+                }
 
-		// Mark deletion as in progress
-		this.deleteOperationsInProgress.set(obsidianId, true);
+                // Mark deletion as in progress
+                this.deleteOperationsInProgress.set(operationKey, true);
 
 		try {
 			// First, get or create the file status record
@@ -184,7 +185,7 @@ export class SupabaseService {
 
 			// Record original number of chunks for verification
 			const chunkCount = chunksToInsert.length;
-			console.log(`Preparing to update ${chunkCount} chunks for file: ${obsidianId}`);
+                        console.log(`Preparing to update ${chunkCount} chunks for file: ${operationKey}`);
 
 			// Execute delete and insert operations in a transaction-like manner
 			// First delete existing chunks for this file using file_status_id
@@ -265,19 +266,20 @@ export class SupabaseService {
 				console.warn(`Insertion verification: Expected ${chunkCount} chunks, found ${insertedCount}`);
 			}
 
-			console.log('Successfully updated chunks:', {
-				numberOfChunks: chunks.length,
-				vaultId: this.settings.vaultId,
-				obsidianId
-			});
-		} catch (error) {
-			console.error('Failed to upsert chunks:', error);
-			throw error;
-		} finally {
-			// Clear deletion in progress flag
-			this.deleteOperationsInProgress.set(obsidianId, false);
-		}
-	}
+                        console.log('Successfully updated chunks:', {
+                                numberOfChunks: chunks.length,
+                                vaultId: this.settings.vaultId,
+                                obsidianId,
+                                path: operationKey
+                        });
+                } catch (error) {
+                        console.error('Failed to upsert chunks:', error);
+                        throw error;
+                } finally {
+                        // Clear deletion in progress flag
+                        this.deleteOperationsInProgress.set(operationKey, false);
+                }
+        }
 
 	/**
 	 * Cleans up partial inserts if an error occurs during batch insertion
@@ -409,43 +411,39 @@ export class SupabaseService {
 	 * Deletes document chunks for a given file status ID from the obsidian_documents table.
 	 * Improved with tracking of operation progress and verification.
 	 */
-        public async deleteDocumentChunks(fileStatusId: number, filePath?: string): Promise<void> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
-			return;
-		}
+        public async deleteDocumentChunks(fileStatusId: number, filePath: string): Promise<void> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
+                        return;
+                }
 
-                const fileStatusKey = filePath ?? fileStatusId.toString();
+                const operationKey = filePath;
 
-		// If a deletion is already in progress for this file, wait with exponential backoff
-		if (this.deleteOperationsInProgress.get(fileStatusKey)) {
+                // If a deletion is already in progress for this file, wait with exponential backoff
+                if (this.deleteOperationsInProgress.get(operationKey)) {
                         console.warn(
-                                `Delete operation already in progress for ${filePath ?? `file status ID ${fileStatusId}`}. Waiting...`
+                                `Delete operation already in progress for ${filePath}. Waiting...`
                         );
-			let retryCount = 0;
-			const maxRetries = 5;
-			const baseDelay = 500; // ms
+                        let retryCount = 0;
+                        const maxRetries = 5;
+                        const baseDelay = 500; // ms
 
-			while (this.deleteOperationsInProgress.get(fileStatusKey) && retryCount < maxRetries) {
-				const delay = baseDelay * Math.pow(2, retryCount);
-				await new Promise(resolve => setTimeout(resolve, delay));
-				retryCount++;
-			}
+                        while (this.deleteOperationsInProgress.get(operationKey) && retryCount < maxRetries) {
+                                const delay = baseDelay * Math.pow(2, retryCount);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                retryCount++;
+                        }
 
-			if (this.deleteOperationsInProgress.get(fileStatusKey)) {
-                                throw new Error(
-                                        `Deletion operation timeout for ${filePath ?? `file status ID ${fileStatusId}`}`
-                                );
-			}
-		}
+                        if (this.deleteOperationsInProgress.get(operationKey)) {
+                                throw new Error(`Deletion operation timeout for ${filePath}`);
+                        }
+                }
 
-		// Mark deletion as in progress
-		this.deleteOperationsInProgress.set(fileStatusKey, true);
+                // Mark deletion as in progress
+                this.deleteOperationsInProgress.set(operationKey, true);
 
-		try {
-                        console.log(
-                                `Starting deletion of chunks for ${filePath ?? `file status ID ${fileStatusId}`}`
-                        );
+                try {
+                        console.log(`Starting deletion of chunks for ${filePath}`);
 
 			// Check how many chunks exist
 			const { data: initialData, error: initialCountError } = await this.client
@@ -459,8 +457,8 @@ export class SupabaseService {
 				throw initialCountError;
 			}
 
-			const initialCount = initialData ? initialData.length : 0;
-			console.log(`Found ${initialCount} chunks to delete for file status ID ${fileStatusId}`);
+                        const initialCount = initialData ? initialData.length : 0;
+                        console.log(`Found ${initialCount} chunks to delete for ${filePath}`);
 
 			// If there are no chunks, we can return early
 			if (initialCount === 0) {
@@ -518,18 +516,18 @@ export class SupabaseService {
 				}
 			}
 
-			if (!success) {
-				throw new Error(`Failed to delete chunks after ${maxRetries} attempts`);
-			}
+                        if (!success) {
+                                throw new Error(`Failed to delete chunks after ${maxRetries} attempts`);
+                        }
 
-			console.log(`Successfully deleted chunks for file status ID ${fileStatusId}`);
-		} catch (error) {
-			console.error('Failed to delete chunks:', error);
-			throw error;
-		} finally {
-			// Clear the deletion-in-progress flag
-			this.deleteOperationsInProgress.set(fileStatusKey, false);
-		}
+                        console.log(`Successfully deleted chunks for ${filePath}`);
+                } catch (error) {
+                        console.error('Failed to delete chunks:', error);
+                        throw error;
+                } finally {
+                        // Clear the deletion-in-progress flag
+                        this.deleteOperationsInProgress.set(operationKey, false);
+                }
         }
 
         /**
