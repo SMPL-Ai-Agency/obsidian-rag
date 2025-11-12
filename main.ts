@@ -1,7 +1,7 @@
 // src/main.ts
 import { Plugin, TFile, Notice } from 'obsidian';
 import { SupabaseService } from './services/SupabaseService';
-import { OpenAIService } from './services/OpenAIService';
+import { EmbeddingService } from './services/EmbeddingService';
 import { QueueService } from './services/QueueService';
 import { FileTracker } from './utils/FileTracker';
 import { ErrorHandler } from './utils/ErrorHandler';
@@ -13,19 +13,21 @@ import { MetadataExtractor } from './services/MetadataExtractor';
 import { StatusManager, PluginStatus } from './services/StatusManager';
 import { SyncDetectionManager } from './services/SyncDetectionManager';
 import {
-	ObsidianRAGSettings,
-	DEFAULT_SETTINGS,
-	isVaultInitialized,
-	generateVaultId,
-	getAllExclusions,
-	SYSTEM_EXCLUSIONS
+        ObsidianRAGSettings,
+        DEFAULT_SETTINGS,
+        DEFAULT_OPENAI_SETTINGS,
+        DEFAULT_OLLAMA_SETTINGS,
+        isVaultInitialized,
+        generateVaultId,
+        getAllExclusions,
+        SYSTEM_EXCLUSIONS
 } from './settings/Settings';
 import { ProcessingTask, TaskType, TaskStatus } from './models/ProcessingTask';
 
 export default class ObsidianRAGPlugin extends Plugin {
 	settings: ObsidianRAGSettings;
 	private supabaseService: SupabaseService | null = null;
-	private openAIService: OpenAIService | null = null;
+        private embeddingService: EmbeddingService | null = null;
 	private queueService: QueueService | null = null;
 	private fileTracker: FileTracker | null = null;
 	private errorHandler: ErrorHandler | null = null;
@@ -268,13 +270,44 @@ export default class ObsidianRAGPlugin extends Plugin {
 		this.statusManager?.setStatus(PluginStatus.INITIALIZING, { message: 'Core services initialized' });
 	}
 
-	private async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-		// Ensure exclusions have the expected structure
-		if (!this.settings.exclusions) this.settings.exclusions = { ...DEFAULT_SETTINGS.exclusions };
-		if (!this.settings.exclusions.excludedFolders) this.settings.exclusions.excludedFolders = [];
-		if (!this.settings.exclusions.excludedFileTypes) this.settings.exclusions.excludedFileTypes = [];
-		if (!this.settings.exclusions.excludedFilePrefixes) this.settings.exclusions.excludedFilePrefixes = [];
+        private async loadSettings() {
+                const storedSettings = await this.loadData();
+                this.settings = Object.assign({}, DEFAULT_SETTINGS, storedSettings);
+
+                // Ensure embedding settings exist and merge defaults
+                if (!this.settings.embeddings) {
+                        const legacyOpenAI = storedSettings?.openai || this.settings.openai;
+                        this.settings.embeddings = {
+                                ollama: { ...DEFAULT_OLLAMA_SETTINGS },
+                                openai: {
+                                        ...DEFAULT_OPENAI_SETTINGS,
+                                        ...(legacyOpenAI || {}),
+                                },
+                        };
+                } else {
+                        this.settings.embeddings.ollama = {
+                                ...DEFAULT_OLLAMA_SETTINGS,
+                                ...(this.settings.embeddings.ollama || {}),
+                        };
+                        this.settings.embeddings.openai = {
+                                ...DEFAULT_OPENAI_SETTINGS,
+                                ...(this.settings.embeddings.openai || {}),
+                        };
+                }
+
+                // Maintain deprecated openai field for backwards compatibility
+                this.settings.openai = {
+                        ...DEFAULT_OPENAI_SETTINGS,
+                        ...(this.settings.openai || {}),
+                        ...this.settings.embeddings.openai,
+                };
+                this.settings.embeddings.openai = { ...this.settings.openai };
+
+                // Ensure exclusions have the expected structure
+                if (!this.settings.exclusions) this.settings.exclusions = { ...DEFAULT_SETTINGS.exclusions };
+                if (!this.settings.exclusions.excludedFolders) this.settings.exclusions.excludedFolders = [];
+                if (!this.settings.exclusions.excludedFileTypes) this.settings.exclusions.excludedFileTypes = [];
+                if (!this.settings.exclusions.excludedFilePrefixes) this.settings.exclusions.excludedFilePrefixes = [];
 		if (!this.settings.exclusions.excludedFiles) this.settings.exclusions.excludedFiles = [];
 		if (!this.settings.exclusions.systemExcludedFolders) this.settings.exclusions.systemExcludedFolders = [...SYSTEM_EXCLUSIONS.folders];
 		if (!this.settings.exclusions.systemExcludedFileTypes) this.settings.exclusions.systemExcludedFileTypes = [...SYSTEM_EXCLUSIONS.fileTypes];
@@ -282,13 +315,15 @@ export default class ObsidianRAGPlugin extends Plugin {
 		if (!this.settings.exclusions.systemExcludedFiles) this.settings.exclusions.systemExcludedFiles = [...SYSTEM_EXCLUSIONS.files];
 	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-		// Update service settings after saving
-		this.notificationManager?.updateSettings(this.settings.enableNotifications, this.settings.enableProgressBar);
-		this.errorHandler?.updateSettings(this.settings.debug);
-		if (isVaultInitialized(this.settings)) await this.initializeServices();
-	}
+        async saveSettings() {
+                this.settings.openai = { ...this.settings.embeddings.openai };
+                await this.saveData(this.settings);
+                // Update service settings after saving
+                this.notificationManager?.updateSettings(this.settings.enableNotifications, this.settings.enableProgressBar);
+                this.errorHandler?.updateSettings(this.settings.debug);
+                this.embeddingService?.updateSettings(this.settings.embeddings);
+                if (isVaultInitialized(this.settings)) await this.initializeServices();
+        }
 
 	private startPeriodicSyncChecks(): void {
 		if (this.syncCheckInterval) clearInterval(this.syncCheckInterval);
@@ -361,9 +396,9 @@ export default class ObsidianRAGPlugin extends Plugin {
 			}
 			console.log('[ObsidianRAG] Supabase service initialized.');
 
-			// Initialize OpenAI service
-			this.openAIService = new OpenAIService(this.settings.openai, this.errorHandler);
-			console.log('[ObsidianRAG] OpenAI service initialized.');
+                        // Initialize embedding service
+                        this.embeddingService = new EmbeddingService(this.settings.embeddings, this.errorHandler);
+                        console.log('[ObsidianRAG] Embedding service initialized.');
 
 			// Initialize QueueService
 			const notificationManager = this.notificationManager || new NotificationManager(
@@ -376,7 +411,7 @@ export default class ObsidianRAGPlugin extends Plugin {
 				this.settings.queue.maxConcurrent,
 				this.settings.queue.retryAttempts,
 				this.supabaseService,
-				this.openAIService,
+                                this.embeddingService,
 				this.errorHandler,
 				notificationManager,
 				this.app.vault,
@@ -415,11 +450,12 @@ export default class ObsidianRAGPlugin extends Plugin {
 			if (!this.notificationManager) {
 				throw new Error('NotificationManager must be initialized before InitialSyncManager');
 			}
-			this.initialSyncManager = new InitialSyncManager(
-				this.app.vault,
-				this.queueService,
-				this.syncManager,
-				this.metadataExtractor,
+                        this.initialSyncManager = new InitialSyncManager(
+                                this.app.vault,
+                                this.queueService,
+                                this.embeddingService,
+                                this.syncManager,
+                                this.metadataExtractor,
 				this.errorHandler,
 				this.notificationManager,
 				this.supabaseService,
@@ -446,13 +482,19 @@ export default class ObsidianRAGPlugin extends Plugin {
 	}
 
 	private checkRequiredConfigurations(): void {
-		if (!this.settings.openai.apiKey) {
-			new Notice('OpenAI API key is missing. AI features are disabled. Configure it in the settings.');
-		}
-		if (!this.settings.supabase.url || !this.settings.supabase.apiKey) {
-			new Notice('Supabase configuration is incomplete. Database features are disabled. Configure it in the settings.');
-		}
-	}
+                const hasOllama = this.settings.embeddings?.ollama?.enabled;
+                const hasOpenAIApiKey = !!this.settings.embeddings?.openai?.apiKey;
+                const shouldFallbackToOpenAI = this.settings.embeddings?.ollama?.fallbackToOpenAI;
+
+                if (!hasOllama && !hasOpenAIApiKey) {
+                        new Notice('No embedding provider configured. Enable Ollama or provide an OpenAI API key.');
+                } else if (shouldFallbackToOpenAI && !hasOpenAIApiKey) {
+                        new Notice('OpenAI fallback is enabled but the API key is missing. Configure it in the settings.');
+                }
+                if (!this.settings.supabase.url || !this.settings.supabase.apiKey) {
+                        new Notice('Supabase configuration is incomplete. Database features are disabled. Configure it in the settings.');
+                }
+        }
 
 	private registerEventHandlers() {
 		if (this.eventsRegistered) {

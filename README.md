@@ -25,7 +25,7 @@ Obsidian RAG creates and maintains vector representations of your notes in a Sup
 - Automatic synchronization of new and modified notes.
 - Real-time updates as notes are added or edited.
 - Configurable exclusion rules for files and directories.
-- Generation of vector embeddings for semantic similarity search.
+- Generation of vector embeddings for semantic similarity search via Ollama with automatic OpenAI fallback.
 - Robust offline support with an operation queue and reconciliation.
 - Cross-device coordination via a dedicated sync file.
 
@@ -37,7 +37,7 @@ For detailed installation and setup instructions, please refer to the [INSTALL.m
 
 This includes:
 - Setting up Supabase with the required SQL
-- Configuring OpenAI API credentials
+- Configuring an Ollama endpoint (default) and optional OpenAI fallback credentials
 - Plugin installation steps
 - Detailed configuration operations
 - n8n workflow setup for Telegram Chatbot (optional and customizable)
@@ -60,7 +60,7 @@ This includes:
   - Comprehensive error handling
 - Core Services Implementation
   - SupabaseService with connection handling
-  - OpenAIService with embeddings
+  - EmbeddingService with Ollama-first embeddings and OpenAI fallback
   - QueueService with task processing
   - SyncManager with file management
   - EventEmitter system
@@ -112,6 +112,7 @@ For detailed task tracking and progress, see [TASKS.md](TASKS.md).
 - Node.js v16 or higher
 - Yarn
 - A Supabase (PostgreSQL) database with the vector extension enabled
+- Access to an Ollama server (default embedding provider) or a compatible endpoint
 - Familiarity with the Obsidian Plugin API
 
 ### Project Structure
@@ -127,7 +128,7 @@ obsidian-rag/
 │   ├── InitialSyncManager.ts     # Initial vault synchronization
 │   ├── MetadataExtractor.ts      # Extracts note metadata for sync
 │   ├── OfflineQueueManager.ts    # Handles operations during offline periods
-│   ├── OpenAIService.ts          # OpenAI API and embedding generation
+│   ├── EmbeddingService.ts       # Ollama/OpenAI embedding generation
 │   ├── QueueService.ts           # Async task queue with event emissions
 │   ├── StatusManager.ts          # Progress and status tracking
 │   ├── SupabaseService.ts        # Supabase database operations
@@ -227,7 +228,8 @@ The project includes comprehensive documentation to help developers understand a
 - Yarn package manager
 - PostgreSQL (v14 or later)
 - Supabase account
-- OpenAI API key (for embeddings)
+- Local Ollama server (default embedding provider)
+- OpenAI API key (optional fallback)
 
 ### Setup
 1. Clone the repository

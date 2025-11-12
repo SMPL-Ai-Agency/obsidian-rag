@@ -104,20 +104,85 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 					})
 			);
 
-		// OpenAI Settings Section
-		containerEl.createEl('h2', { text: 'OpenAI Configuration' });
-		new Setting(containerEl)
-			.setName('OpenAI API Key')
-			.setDesc('Your OpenAI API key for generating embeddings.')
-			.addText(text =>
-				text.setPlaceholder('Enter your API key')
-					.setValue(this.settings.openai.apiKey)
-					.onChange(async (value) => {
-						this.settings.openai.apiKey = value;
-						await this.plugin.saveSettings();
-						new Notice('OpenAI API key updated.');
-					})
-			);
+                // Embedding Provider Settings Section
+                containerEl.createEl('h2', { text: 'Embeddings' });
+
+                new Setting(containerEl)
+                        .setName('Use Ollama')
+                        .setDesc('Prefer a local Ollama server for embeddings before falling back to OpenAI.')
+                        .addToggle(toggle =>
+                                toggle
+                                        .setValue(this.settings.embeddings.ollama.enabled)
+                                        .onChange(async (value) => {
+                                                this.settings.embeddings.ollama.enabled = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice(`Ollama embeddings ${value ? 'enabled' : 'disabled'}.`);
+                                                this.display();
+                                        })
+                        );
+
+                new Setting(containerEl)
+                        .setName('Ollama URL')
+                        .setDesc('Base URL for your Ollama server (e.g., http://localhost:11434).')
+                        .addText(text => {
+                                const control = text
+                                        .setPlaceholder('http://localhost:11434')
+                                        .setValue(this.settings.embeddings.ollama.url)
+                                        .onChange(async (value) => {
+                                                this.settings.embeddings.ollama.url = value.trim();
+                                                await this.plugin.saveSettings();
+                                                new Notice('Ollama URL updated.');
+                                        });
+                                control.setDisabled(!this.settings.embeddings.ollama.enabled);
+                                return control;
+                        });
+
+                new Setting(containerEl)
+                        .setName('Ollama Model')
+                        .setDesc('Model to request from Ollama (defaults to nomic-embed-text).')
+                        .addText(text => {
+                                const control = text
+                                        .setPlaceholder('nomic-embed-text')
+                                        .setValue(this.settings.embeddings.ollama.model)
+                                        .onChange(async (value) => {
+                                                this.settings.embeddings.ollama.model = value.trim();
+                                                await this.plugin.saveSettings();
+                                                new Notice('Ollama model updated.');
+                                        });
+                                control.setDisabled(!this.settings.embeddings.ollama.enabled);
+                                return control;
+                        });
+
+                new Setting(containerEl)
+                        .setName('Fallback to OpenAI')
+                        .setDesc('If enabled, OpenAI will be used when Ollama is unavailable or fails.')
+                        .addToggle(toggle =>
+                                toggle
+                                        .setValue(this.settings.embeddings.ollama.fallbackToOpenAI)
+                                        .onChange(async (value) => {
+                                                this.settings.embeddings.ollama.fallbackToOpenAI = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice(`OpenAI fallback ${value ? 'enabled' : 'disabled'}.`);
+                                        })
+                        );
+
+                new Setting(containerEl)
+                        .setName('OpenAI API Key')
+                        .setDesc('Used when falling back to OpenAI for embeddings.')
+                        .addText(text =>
+                                text.setPlaceholder('Enter your API key')
+                                        .setValue(this.settings.embeddings.openai.apiKey)
+                                        .onChange(async (value) => {
+                                                this.settings.embeddings.openai.apiKey = value;
+                                                if (this.settings.openai) {
+                                                        this.settings.openai.apiKey = value;
+                                                } else {
+                                                        this.settings.openai = { ...this.settings.embeddings.openai };
+                                                }
+                                                await this.plugin.saveSettings();
+                                                new Notice('OpenAI API key updated.');
+                                        })
+                        );
 
 		// Document Processing Settings Section
 		containerEl.createEl('h2', { text: 'Document Processing' });

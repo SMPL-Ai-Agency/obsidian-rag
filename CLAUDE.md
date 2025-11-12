@@ -2,7 +2,7 @@
 
 ## Overview
 
-Obsidian RAG is an Obsidian plugin that enhances note-taking by synchronizing documents with a Supabase vector database for AI-powered search. The plugin provides semantic search capabilities through OpenAI embeddings while maintaining data integrity and user experience. It operates entirely within the Obsidian environment, leveraging remote services (Supabase and OpenAI) for data storage and processing.
+Obsidian RAG is an Obsidian plugin that enhances note-taking by synchronizing documents with a Supabase vector database for AI-powered search. The plugin generates embeddings through a local-first Ollama integration with automatic OpenAI fallback while maintaining data integrity and user experience. It operates entirely within the Obsidian environment, leveraging remote services (Supabase and optional OpenAI) alongside self-hosted Ollama for data storage and processing.
 
 The primary purpose of Obsidian RAG is to enable users to create chatbots through n8n that can query and interact with their Obsidian knowledge base. By storing document embeddings in Supabase, the plugin makes the entire vault searchable and accessible to AI-powered applications, allowing users to build custom workflows and chatbots that leverage their personal knowledge base.
 
@@ -113,7 +113,7 @@ The plugin implements a worker actor model with an in-memory event queue to ensu
   - File content reading
   - Content chunking with configurable strategies
   - Metadata extraction and normalization
-  - OpenAI embedding generation
+  - Embedding generation via Ollama with OpenAI fallback
   - Supabase database synchronization
 
 - **Synchronization**:
@@ -167,7 +167,7 @@ The plugin implements a worker actor model with an in-memory event queue to ensu
 ### 7. Settings Management
 
 - **Configuration Options**:
-  - API credentials (Supabase, OpenAI)
+  - API credentials (Supabase, Ollama, optional OpenAI)
   - Processing parameters
   - Exclusion patterns
   - Chunking strategies
@@ -216,7 +216,7 @@ The plugin implements a worker actor model with an in-memory event queue to ensu
 3. **Content Processing**:
    - File is chunked according to strategy
    - Metadata is extracted from content
-   - OpenAI API generates embeddings
+   - Embedding service requests vectors from Ollama, falling back to OpenAI when necessary
    - Chunks and embeddings are prepared for storage
 
 4. **Database Synchronization**:
@@ -283,9 +283,9 @@ The plugin implements a worker actor model with an in-memory event queue to ensu
   - Test with different configurations
 
 - **API Integration**:
-  - Test OpenAI API interactions
-  - Verify embedding generation
-  - Validate embedding quality
+  - Test Ollama endpoint interactions
+  - Test OpenAI fallback flows
+  - Verify embedding generation and dimensionality
   - Test rate limiting handling
   - Verify error recovery
 
