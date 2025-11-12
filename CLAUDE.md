@@ -1,4 +1,6 @@
-# Obsidian RAG Architecture
+# DEPRICATED: Obsidian RAG Architecture
+
+This Project uses OpenAi Codex AGENTS.md file for this purpose.
 
 ## Overview
 
