@@ -12,7 +12,7 @@ import {
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { NotificationManager } from '../utils/NotificationManager';
 import { SupabaseService } from './SupabaseService';
-import { OpenAIService } from './OpenAIService';
+import { EmbeddingService } from './EmbeddingService';
 import { DEFAULT_CHUNKING_OPTIONS } from '../settings/Settings';
 import { EventEmitter } from './EventEmitter';
 
@@ -32,7 +32,7 @@ export class QueueService {
 		private maxConcurrent: number,
 		private maxRetries: number,
 		private supabaseService: SupabaseService | null,
-		private openAIService: OpenAIService | null,
+                private embeddingService: EmbeddingService | null,
 		private errorHandler: ErrorHandler,
                 private notificationManager: NotificationManager,
                 vault: Vault,
@@ -278,9 +278,9 @@ export class QueueService {
 	}
 
 	private async processCreateUpdateTask(task: ProcessingTask): Promise<void> {
-		if (!this.supabaseService || !this.openAIService) {
-			throw new Error('Required services not initialized');
-		}
+                if (!this.supabaseService || !this.embeddingService) {
+                        throw new Error('Required services not initialized');
+                }
 		try {
 			console.log('Reading file:', task.id);
 			const file = this.vault.getAbstractFileByPath(task.id);
@@ -324,7 +324,7 @@ export class QueueService {
 			for (let i = 0; i < chunks.length; i++) {
 				const embedProgress = Math.floor(40 + (i / chunks.length) * 30);
 				this.notifyProgress(task.id, embedProgress, `Generating embedding ${i + 1}/${chunks.length}`);
-				const response = await this.openAIService.createEmbeddings([chunks[i].content]);
+                                const response = await this.embeddingService.createEmbeddings([chunks[i].content]);
 				if (response.length > 0 && response[0].data.length > 0) {
 					chunks[i].embedding = response[0].data[0].embedding;
 					chunks[i].vectorized_at = new Date().toISOString();

@@ -3,7 +3,7 @@ import { QueueService } from '../services/QueueService';
 import { ProcessingTask, TaskStatus, TaskType } from '../models/ProcessingTask';
 import { DocumentChunk, DocumentMetadata } from '../models/DocumentChunk';
 import { SupabaseService } from '../services/SupabaseService';
-import { OpenAIService } from '../services/OpenAIService';
+import { EmbeddingService } from '../services/EmbeddingService';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { NotificationManager } from '../utils/NotificationManager';
 import { Vault } from 'obsidian';
@@ -53,7 +53,7 @@ describe('QueueService processDeleteTask', () => {
                                 2,
                                 3,
                                 supabaseService as SupabaseService,
-                                null as unknown as OpenAIService,
+                                null as unknown as EmbeddingService,
                                 errorHandler,
                                 notificationManager,
                                 {} as Vault

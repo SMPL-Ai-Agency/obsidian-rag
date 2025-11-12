@@ -7,7 +7,8 @@
 Before you begin, ensure you have:
 - [Obsidian](https://obsidian.md/) installed
 - A [Supabase](https://supabase.com) account
-- An [OpenAI](https://platform.openai.com/) API key
+- Access to an [Ollama](https://ollama.com/) server (local or remote)
+- *(Optional)* An [OpenAI](https://platform.openai.com/) API key for fallback embeddings
 
 ### Installation Steps
 
@@ -40,7 +41,10 @@ Before you begin, ensure you have:
    - Enter your Supabase credentials:
      - Project URL
      - Database Password
-   - Enter your OpenAI API key
+   - Configure the Embeddings section:
+     - Confirm the Ollama server URL and model (defaults to `http://localhost:11434` and `nomic-embed-text`)
+     - Enable or disable Ollama usage as needed
+     - (Optional) Provide an OpenAI API key to enable fallback embedding generation
    - Click "Initialize Database" to create the required tables
 
 4. **Start Using**

@@ -26,17 +26,57 @@ export interface ExclusionSettings {
  * OpenAI API settings
  */
 export interface OpenAISettings {
-	apiKey: string;         // API key for OpenAI
-	model: string;          // Model to use for embeddings
-	maxTokens: number;      // Maximum tokens for a single request
-	temperature: number;    // Sampling temperature for generation
+        apiKey: string;         // API key for OpenAI
+        model: string;          // Model to use for embeddings
+        maxTokens: number;      // Maximum tokens for a single request
+        temperature: number;    // Sampling temperature for generation
 }
+
+/**
+ * Ollama embedding settings
+ */
+export interface OllamaSettings {
+        enabled: boolean;          // Whether Ollama should be used for embeddings
+        url: string;               // Base URL of the Ollama server
+        model: string;             // Model name served by Ollama
+        fallbackToOpenAI: boolean; // Whether to fall back to OpenAI when Ollama fails
+}
+
+/**
+ * Combined embedding provider settings
+ */
+export interface EmbeddingProviderSettings {
+        ollama: OllamaSettings;    // Ollama configuration
+        openai: OpenAISettings;    // OpenAI configuration
+}
+
+/**
+ * Default provider settings
+ */
+export const DEFAULT_OPENAI_SETTINGS: OpenAISettings = {
+        apiKey: '',
+        model: 'text-embedding-3-small',
+        maxTokens: 8000,
+        temperature: 0.0,
+};
+
+export const DEFAULT_OLLAMA_SETTINGS: OllamaSettings = {
+        enabled: true,
+        url: 'http://localhost:11434',
+        model: 'nomic-embed-text',
+        fallbackToOpenAI: true,
+};
+
+export const DEFAULT_EMBEDDING_PROVIDER_SETTINGS: EmbeddingProviderSettings = {
+        ollama: { ...DEFAULT_OLLAMA_SETTINGS },
+        openai: { ...DEFAULT_OPENAI_SETTINGS },
+};
 
 /**
  * Supabase connection settings
  */
 export interface SupabaseSettings {
-	url: string;              // Supabase project URL
+        url: string;              // Supabase project URL
 	apiKey: string;          // Supabase API key
 	initialized?: boolean;    // Whether database is initialized
 	lastSetupAttempt?: number; // Timestamp of last setup attempt
@@ -119,12 +159,13 @@ export interface UpdateBehaviorSettings {
  * Main settings interface for the plugin
  */
 export interface ObsidianRAGSettings {
-	// Vault identification
-	vaultId: string | null;      // Unique identifier for the vault
-	lastKnownVaultName: string;  // Last known name of the vault
-	// API Configuration
-	supabase: SupabaseSettings;  // Supabase configuration
-	openai: OpenAISettings;      // OpenAI configuration
+        // Vault identification
+        vaultId: string | null;      // Unique identifier for the vault
+        lastKnownVaultName: string;  // Last known name of the vault
+        // API Configuration
+        supabase: SupabaseSettings;  // Supabase configuration
+        openai?: OpenAISettings;     // Deprecated: OpenAI configuration (kept for backward compatibility)
+        embeddings: EmbeddingProviderSettings; // Embedding provider configuration
 	// Processing settings
 	chunking: ChunkSettings;     // Text chunking settings
 	queue: QueueSettings;        // Queue processing settings
@@ -207,22 +248,21 @@ export const SYSTEM_EXCLUSIONS = {
  * Default settings when plugin is first initialized
  */
 export const DEFAULT_SETTINGS: ObsidianRAGSettings = {
-	vaultId: null,
-	lastKnownVaultName: '',
-	supabase: {
-		url: '',
-		apiKey: '',
-		initialized: false,
-		lastSetupAttempt: 0,
-		setupRetries: 0,
-	},
-	openai: {
-		apiKey: '',
-		model: 'text-embedding-ada-002',
-		maxTokens: 8000,
-		temperature: 0.0,
-	},
-	chunking: { ...DEFAULT_CHUNKING_OPTIONS },
+        vaultId: null,
+        lastKnownVaultName: '',
+        supabase: {
+                url: '',
+                apiKey: '',
+                initialized: false,
+                lastSetupAttempt: 0,
+                setupRetries: 0,
+        },
+        openai: { ...DEFAULT_OPENAI_SETTINGS },
+        embeddings: {
+                ollama: { ...DEFAULT_OLLAMA_SETTINGS },
+                openai: { ...DEFAULT_OPENAI_SETTINGS },
+        },
+        chunking: { ...DEFAULT_CHUNKING_OPTIONS },
 	queue: {
 		maxConcurrent: 3,
 		retryAttempts: 3,

@@ -3,6 +3,7 @@ import { TFile, Vault, Notice } from 'obsidian';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { NotificationManager } from '../utils/NotificationManager';
 import { QueueService } from './QueueService';
+import { EmbeddingService } from './EmbeddingService';
 import { SyncFileManager } from './SyncFileManager';
 import { MetadataExtractor } from './MetadataExtractor';
 import { SupabaseService } from './SupabaseService';
@@ -50,16 +51,19 @@ export class InitialSyncManager {
 	private isRunning: boolean = false;
 	private lastProcessedIndex: number = 0; // For resuming interrupted syncs
 	private processingTimeout: NodeJS.Timeout | null = null;
-	private readonly options: InitialSyncOptions;
-	private supabaseService: SupabaseService | null;
-	private resumeFileList: TFile[] = [];
+        private readonly options: InitialSyncOptions;
+        private supabaseService: SupabaseService | null;
+        private resumeFileList: TFile[] = [];
+        private embeddingService: EmbeddingService | null;
+        private embeddingWarningShown = false;
 
-	constructor(
-		private vault: Vault,
-		private queueService: QueueService,
-		private syncManager: SyncFileManager,
-		private metadataExtractor: MetadataExtractor,
-		private errorHandler: ErrorHandler,
+        constructor(
+                private vault: Vault,
+                private queueService: QueueService,
+                embeddingService: EmbeddingService | null,
+                private syncManager: SyncFileManager,
+                private metadataExtractor: MetadataExtractor,
+                private errorHandler: ErrorHandler,
 		private notificationManager: NotificationManager,
 		supabaseService: SupabaseService | null,
 		options: Partial<InitialSyncOptions> = {}
@@ -78,15 +82,16 @@ export class InitialSyncManager {
 			},
 			...options
 		};
-		this.progress = {
-			totalFiles: 0,
-			processedFiles: 0,
+                this.progress = {
+                        totalFiles: 0,
+                        processedFiles: 0,
 			currentBatch: 0,
 			totalBatches: 0,
 			startTime: 0
 		};
-		this.supabaseService = supabaseService;
-	}
+                this.supabaseService = supabaseService;
+                this.embeddingService = embeddingService;
+        }
 
 	/**
 	 * Filters files based on exclusion rules.
@@ -307,10 +312,14 @@ export class InitialSyncManager {
 					hash: fileHash
 				});
 			}
-			// Queue file processing for further steps (like embedding generation)
-			await new Promise<void>((resolve, reject) => {
-				this.queueService.addTask({
-					id: file.path,
+                        // Queue file processing for further steps (like embedding generation)
+                        if (!this.embeddingWarningShown && !this.embeddingService?.isInitialized()) {
+                                this.embeddingWarningShown = true;
+                                new Notice('No embedding provider configured. Initial sync will queue tasks, but embedding generation may fail until configured.');
+                        }
+                        await new Promise<void>((resolve, reject) => {
+                                this.queueService.addTask({
+                                        id: file.path,
 					type: 'CREATE',
 					priority: this.getFilePriority(file.path),
 					maxRetries: 3,
