@@ -2,12 +2,11 @@
 import { Vault, TFile } from 'obsidian';
 import { TextSplitter, ChunkingOptions } from '../utils/TextSplitter';
 import {
-	ProcessingTask,
-	TaskStatus,
-	TaskType,
-	QueueStats,
-	TaskProgress,
-	TaskProcessingError
+        ProcessingTask,
+        TaskStatus,
+        TaskType,
+        QueueStats,
+        TaskProcessingError
 } from '../models/ProcessingTask';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { NotificationManager } from '../utils/NotificationManager';
@@ -21,12 +20,17 @@ export class QueueService {
 	private processingQueue: ProcessingTask[] = [];
 	private isProcessing: boolean = false;
 	private isStopped: boolean = true;
-	private processingInterval: NodeJS.Timeout | null = null;
         private textSplitter: TextSplitter;
         private chunkSettings: ChunkingOptions;
-	private vault: Vault;
-	// Event emitter for queue events
-	private eventEmitter: EventEmitter;
+        private vault: Vault;
+        // Event emitter for queue events
+        private eventEmitter: EventEmitter;
+        private readonly maxQueueSize: number = 1000;
+        private pendingBackoffTimer: NodeJS.Timeout | null = null;
+        private consecutiveFailures: number = 0;
+        private readonly baseBackoffDelay = 500;
+        private readonly maxBackoffDelay = 30000;
+        private servicesUnavailableNoticeShown = false;
 
 	constructor(
 		private maxConcurrent: number,
@@ -61,42 +65,38 @@ export class QueueService {
 	}
 
 	public start(): void {
-		if (!this.isStopped) return;
-		this.isStopped = false;
-		this.processQueue();
-		this.processingInterval = setInterval(() => {
-			if (!this.isProcessing) {
-				this.processQueue();
-			}
-		}, 1000);
-		// Emit initial queue status
-		this.eventEmitter.emit('queue-status', {
-			queueSize: this.queue.length,
-			pendingChanges: 0,
-			processingCount: this.processingQueue.length,
+                if (!this.isStopped) return;
+                this.isStopped = false;
+                this.resetBackoff();
+                this.scheduleNextProcessing(true);
+                // Emit initial queue status
+                this.eventEmitter.emit('queue-status', {
+                        queueSize: this.queue.length,
+                        pendingChanges: 0,
+                        processingCount: this.processingQueue.length,
 			status: 'processing'
 		});
 	}
 
 	public stop(): void {
 		this.isStopped = true;
-		if (this.processingInterval) {
-			clearInterval(this.processingInterval);
-			this.processingInterval = null;
-		}
-		this.eventEmitter.emit('queue-status', {
-			queueSize: this.queue.length,
-			pendingChanges: 0,
-			processingCount: this.processingQueue.length,
-			status: 'paused'
+                if (this.pendingBackoffTimer) {
+                        clearTimeout(this.pendingBackoffTimer);
+                        this.pendingBackoffTimer = null;
+                }
+                this.eventEmitter.emit('queue-status', {
+                        queueSize: this.queue.length,
+                        pendingChanges: 0,
+                        processingCount: this.processingQueue.length,
+                        status: 'paused'
 		});
 	}
 
 	public async addTask(task: ProcessingTask): Promise<void> {
-		if (this.queue.length >= 1000) {
-			throw new Error(TaskProcessingError.QUEUE_FULL);
-		}
-		console.log('Adding task to queue:', { id: task.id, type: task.type, priority: task.priority });
+                if (this.queue.length + this.processingQueue.length >= this.maxQueueSize) {
+                        throw new Error(TaskProcessingError.QUEUE_FULL);
+                }
+                console.log('Adding task to queue:', { id: task.id, type: task.type, priority: task.priority });
 
 		// Check for duplicate or conflicting tasks on the same file.
 		const existingTaskIndex = this.queue.findIndex(t => t.id === task.id);
@@ -151,20 +151,31 @@ export class QueueService {
 			currentTask: task.id
 		});
 
-		if (!this.isProcessing && !this.isStopped) {
-			this.processQueue();
-		}
-	}
+                if (!this.isProcessing && !this.isStopped) {
+                        this.scheduleNextProcessing(true);
+                }
+        }
 
-	private async processQueue(): Promise<void> {
-		if (this.isProcessing || this.isStopped || this.queue.length === 0) {
-			return;
-		}
-		this.isProcessing = true;
-		try {
-			// Sort tasks by priority, then DELETE tasks, then by creation time.
-			this.queue.sort((a, b) => {
-				if (b.priority !== a.priority) return b.priority - a.priority;
+        private async processQueue(): Promise<void> {
+                if (this.isProcessing || this.isStopped || this.queue.length === 0) {
+                        return;
+                }
+                if (!this.areCoreServicesAvailable()) {
+                        this.applyReconnectionSafeguards();
+                        return;
+                }
+                if (this.pendingBackoffTimer) {
+                        clearTimeout(this.pendingBackoffTimer);
+                        this.pendingBackoffTimer = null;
+                }
+                this.isProcessing = true;
+                try {
+                        if (this.servicesUnavailableNoticeShown) {
+                                this.servicesUnavailableNoticeShown = false;
+                        }
+                        // Sort tasks by priority, then DELETE tasks, then by creation time.
+                        this.queue.sort((a, b) => {
+                                if (b.priority !== a.priority) return b.priority - a.priority;
 				if (a.type === TaskType.DELETE && b.type !== TaskType.DELETE) return -1;
 				if (b.type === TaskType.DELETE && a.type !== TaskType.DELETE) return 1;
 				return a.createdAt - b.createdAt;
@@ -227,21 +238,23 @@ export class QueueService {
 				});
 			}
 
-			this.eventEmitter.emit('queue-status', {
-				queueSize: this.queue.length,
-				pendingChanges: this.queue.length + this.processingQueue.length,
-				processingCount: this.processingQueue.length,
-				status: 'processing'
-			});
-		} catch (error) {
-			this.errorHandler.handleError(error, { context: 'QueueService.processQueue' });
-		} finally {
-			this.isProcessing = false;
-			if (this.queue.length > 0 && !this.isStopped) {
-				setTimeout(() => this.processQueue(), 100);
-			}
-		}
-	}
+                        this.eventEmitter.emit('queue-status', {
+                                queueSize: this.queue.length,
+                                pendingChanges: this.queue.length + this.processingQueue.length,
+                                processingCount: this.processingQueue.length,
+                                status: 'processing'
+                        });
+                        this.resetBackoff();
+                } catch (error) {
+                        this.errorHandler.handleError(error, { context: 'QueueService.processQueue' });
+                        this.incrementBackoff();
+                } finally {
+                        this.isProcessing = false;
+                        if (this.queue.length > 0 && !this.isStopped) {
+                                this.scheduleNextProcessing();
+                        }
+                }
+        }
 
 	private async processTask(task: ProcessingTask): Promise<void> {
 		console.log('Processing task:', { id: task.id, type: task.type, status: task.status });
@@ -260,21 +273,22 @@ export class QueueService {
 				default:
 					throw new Error(`Unsupported task type: ${task.type}`);
 			}
-			task.status = TaskStatus.COMPLETED;
-			task.completedAt = Date.now();
-			this.notifyProgress(task.id, 100, 'Task completed');
-			console.log('Task completed successfully:', task.id);
+                        task.status = TaskStatus.COMPLETED;
+                        task.completedAt = Date.now();
+                        this.notifyProgress(task.id, 100, 'Task completed');
+                        console.log('Task completed successfully:', task.id);
 			this.eventEmitter.emit('queue-progress', {
 				processed: 1,
 				total: this.queue.length + 1,
 				currentTask: task.id
 			});
-		} catch (error) {
-			console.error('Error processing task:', { taskId: task.id, error });
-			await this.handleTaskError(task, error);
-		} finally {
-			this.removeFromProcessingQueue(task);
-		}
+                        this.resetBackoff();
+                } catch (error) {
+                        console.error('Error processing task:', { taskId: task.id, error });
+                        await this.handleTaskError(task, error);
+                } finally {
+                        this.removeFromProcessingQueue(task);
+                }
 	}
 
 	private async processCreateUpdateTask(task: ProcessingTask): Promise<void> {
@@ -443,12 +457,12 @@ export class QueueService {
 	private async handleTaskError(task: ProcessingTask, error: any): Promise<void> {
 		task.retryCount = (task.retryCount || 0) + 1;
 		task.updatedAt = Date.now();
-		if (task.retryCount < this.maxRetries) {
-			task.status = TaskStatus.RETRYING;
-			this.queue.unshift(task);
-			this.notifyProgress(task.id, 0, `Retry attempt ${task.retryCount}`);
-			console.log('Task queued for retry:', { taskId: task.id, retryCount: task.retryCount, maxRetries: this.maxRetries });
-		} else {
+                if (task.retryCount < this.maxRetries) {
+                        task.status = TaskStatus.RETRYING;
+                        this.queue.unshift(task);
+                        this.notifyProgress(task.id, 0, `Retry attempt ${task.retryCount}`);
+                        console.log('Task queued for retry:', { taskId: task.id, retryCount: task.retryCount, maxRetries: this.maxRetries });
+                } else {
 			task.status = TaskStatus.FAILED;
 			task.error = {
 				message: error.message,
@@ -458,9 +472,11 @@ export class QueueService {
 			task.completedAt = Date.now();
 			console.error('Task failed after max retries:', { taskId: task.id, error: task.error });
 		}
-		this.errorHandler.handleError(error, { context: 'QueueService.processTask', taskId: task.id, taskType: task.type });
-		this.eventEmitter.emit('queue-progress', { processed: 0, total: this.queue.length, currentTask: task.id });
-	}
+                this.errorHandler.handleError(error, { context: 'QueueService.processTask', taskId: task.id, taskType: task.type });
+                this.eventEmitter.emit('queue-progress', { processed: 0, total: this.queue.length, currentTask: task.id });
+                this.incrementBackoff();
+                this.scheduleNextProcessing();
+        }
 
 	private removeFromProcessingQueue(task: ProcessingTask): void {
 		const index = this.processingQueue.findIndex(t => t.id === task.id);
@@ -480,9 +496,9 @@ export class QueueService {
 		this.eventEmitter.emit('queue-progress', { processed: progress, total: 100, currentTask: taskId });
 	}
 
-	public getQueueStats(): QueueStats {
-		const now = Date.now();
-		const oneHour = 60 * 60 * 1000;
+        public getQueueStats(): QueueStats {
+                const now = Date.now();
+                const oneHour = 60 * 60 * 1000;
 		const tasksByStatus = this.queue.reduce((acc, task) => {
 			acc[task.status] = (acc[task.status] || 0) + 1;
 			return acc;
@@ -507,11 +523,15 @@ export class QueueService {
 		};
 	}
 
-	public clear(): void {
-		this.queue = [];
-		this.processingQueue = [];
-		this.notificationManager.clear();
-	}
+        public clear(): void {
+                this.queue = [];
+                this.processingQueue = [];
+                this.notificationManager.clear();
+                if (this.pendingBackoffTimer) {
+                        clearTimeout(this.pendingBackoffTimer);
+                        this.pendingBackoffTimer = null;
+                }
+        }
 
         public updateSettings(settings: { maxConcurrent: number; maxRetries: number; chunkSettings?: Partial<ChunkingOptions> }): void {
                 this.maxConcurrent = settings.maxConcurrent;
@@ -536,6 +556,57 @@ export class QueueService {
                                 throw new Error('Failed to update TextSplitter with provided settings.');
                         }
                 }
+        }
+
+        private scheduleNextProcessing(forceImmediate: boolean = false): void {
+                if (this.isStopped || this.queue.length === 0) {
+                        return;
+                }
+                if (this.pendingBackoffTimer) {
+                        clearTimeout(this.pendingBackoffTimer);
+                }
+                const delay = forceImmediate ? 0 : this.getBackoffDelay();
+                this.pendingBackoffTimer = setTimeout(() => {
+                        this.pendingBackoffTimer = null;
+                        this.processQueue();
+                }, delay);
+        }
+
+        private getBackoffDelay(): number {
+                const exponent = Math.min(this.consecutiveFailures, 10);
+                const delay = this.baseBackoffDelay * Math.pow(2, exponent);
+                const jitter = Math.random() * this.baseBackoffDelay;
+                return Math.min(delay + jitter, this.maxBackoffDelay);
+        }
+
+        private resetBackoff(): void {
+                this.consecutiveFailures = 0;
+        }
+
+        private incrementBackoff(): void {
+                this.consecutiveFailures = Math.min(this.consecutiveFailures + 1, 10);
+        }
+
+        private areCoreServicesAvailable(): boolean {
+                const supabaseReady = !!this.supabaseService;
+                const embeddingReady = !!this.embeddingService;
+                if (!supabaseReady || !embeddingReady) {
+                        return false;
+                }
+                return true;
+        }
+
+        private applyReconnectionSafeguards(): void {
+                this.incrementBackoff();
+                if (!this.servicesUnavailableNoticeShown) {
+                        this.servicesUnavailableNoticeShown = true;
+                        this.errorHandler.handleError(
+                                new Error('Core services unavailable. Queue processing paused.'),
+                                { context: 'QueueService.reconnectionGuard' },
+                                'warn'
+                        );
+                }
+                this.scheduleNextProcessing();
         }
 
 	/**
