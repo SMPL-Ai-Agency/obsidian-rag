@@ -377,52 +377,66 @@ export class QueueService {
 		}
 	}
 
-	private async processDeleteTask(task: ProcessingTask): Promise<void> {
-		if (!this.supabaseService) throw new Error('Supabase service not initialized');
-		try {
-			this.notifyProgress(task.id, 10, 'Starting deletion process');
-			console.log(`Checking document before deletion: ${task.metadata.obsidianId}`);
-			const chunks = await this.supabaseService.getDocumentChunks(task.metadata.obsidianId);
-			const chunkCount = chunks.length;
-			if (chunkCount > 0) {
-				console.log(`Found ${chunkCount} chunks to delete for ${task.metadata.obsidianId}`);
-				this.notifyProgress(task.id, 30, `Deleting ${chunkCount} chunks`);
-			} else {
-				console.log(`No chunks found for deletion: ${task.metadata.obsidianId}`);
-				this.notifyProgress(task.id, 30, 'No chunks to delete');
-			}
-			let deleteAttempts = 0;
-			const maxDeleteAttempts = 3;
-			let deletedSuccessfully = false;
-			while (!deletedSuccessfully && deleteAttempts < maxDeleteAttempts) {
-				try {
-					this.notifyProgress(task.id, 50, deleteAttempts > 0 ? `Deletion attempt ${deleteAttempts + 1}/${maxDeleteAttempts}` : 'Deleting from database');
-					await this.supabaseService.deleteDocumentChunks(task.metadata.obsidianId);
-					deletedSuccessfully = true;
-					const remainingChunks = await this.supabaseService.getDocumentChunks(task.metadata.obsidianId);
-					if (remainingChunks.length > 0) {
-						console.warn(`Deletion verification failed: ${remainingChunks.length} chunks still exist`);
-						deletedSuccessfully = false;
-						throw new Error(`Deletion verification failed for ${task.metadata.obsidianId}`);
-					}
-				} catch (deleteError) {
-					deleteAttempts++;
-					console.error(`Error deleting chunks (attempt ${deleteAttempts}/${maxDeleteAttempts}):`, deleteError);
-					if (deleteAttempts >= maxDeleteAttempts) throw deleteError;
-					const backoffTime = Math.pow(2, deleteAttempts) * 1000;
-					this.notifyProgress(task.id, 50, `Will retry deletion in ${backoffTime / 1000}s`);
-					await new Promise(resolve => setTimeout(resolve, backoffTime));
-				}
-			}
-			this.notifyProgress(task.id, 80, 'Updating file status');
-			await this.supabaseService.updateFileStatusOnDelete(task.metadata.obsidianId);
-			this.notifyProgress(task.id, 100, 'Delete completed');
-			console.log(`Successfully deleted document: ${task.metadata.obsidianId}`);
-		} catch (error) {
-			console.error('Error in processDeleteTask:', { error, taskId: task.id, metadata: task.metadata });
-			throw error;
-		}
-	}
+        private async processDeleteTask(task: ProcessingTask): Promise<void> {
+                if (!this.supabaseService) throw new Error('Supabase service not initialized');
+                try {
+                        const filePath = task.metadata.obsidianId;
+                        this.notifyProgress(task.id, 10, 'Starting deletion process');
+                        console.log(`Resolving file status before deletion: ${filePath}`);
+                        const fileStatusId = await this.supabaseService.getFileStatusIdByPath(filePath);
+
+                        if (!fileStatusId) {
+                                console.log(`No file status record found for deletion: ${filePath}`);
+                                this.notifyProgress(task.id, 30, 'No chunks to delete');
+                        } else {
+                                const chunks = await this.supabaseService.getDocumentChunks(fileStatusId);
+                                const chunkCount = chunks.length;
+                                if (chunkCount > 0) {
+                                        console.log(`Found ${chunkCount} chunks to delete for ${filePath}`);
+                                        this.notifyProgress(task.id, 30, `Deleting ${chunkCount} chunks`);
+                                } else {
+                                        console.log(`No chunks found for deletion: ${filePath}`);
+                                        this.notifyProgress(task.id, 30, 'No chunks to delete');
+                                }
+                                let deleteAttempts = 0;
+                                const maxDeleteAttempts = 3;
+                                let deletedSuccessfully = false;
+                                while (!deletedSuccessfully && deleteAttempts < maxDeleteAttempts) {
+                                        try {
+                                                this.notifyProgress(
+                                                        task.id,
+                                                        50,
+                                                        deleteAttempts > 0
+                                                                ? `Deletion attempt ${deleteAttempts + 1}/${maxDeleteAttempts}`
+                                                                : 'Deleting from database'
+                                                );
+                                                await this.supabaseService.deleteDocumentChunks(fileStatusId);
+                                                deletedSuccessfully = true;
+                                                const remainingChunks = await this.supabaseService.getDocumentChunks(fileStatusId);
+                                                if (remainingChunks.length > 0) {
+                                                        console.warn(`Deletion verification failed: ${remainingChunks.length} chunks still exist`);
+                                                        deletedSuccessfully = false;
+                                                        throw new Error(`Deletion verification failed for ${filePath}`);
+                                                }
+                                        } catch (deleteError) {
+                                                deleteAttempts++;
+                                                console.error(`Error deleting chunks (attempt ${deleteAttempts}/${maxDeleteAttempts}):`, deleteError);
+                                                if (deleteAttempts >= maxDeleteAttempts) throw deleteError;
+                                                const backoffTime = Math.pow(2, deleteAttempts) * 1000;
+                                                this.notifyProgress(task.id, 50, `Will retry deletion in ${backoffTime / 1000}s`);
+                                                await new Promise(resolve => setTimeout(resolve, backoffTime));
+                                        }
+                                }
+                        }
+                        this.notifyProgress(task.id, 80, 'Updating file status');
+                        await this.supabaseService.updateFileStatusOnDelete(filePath);
+                        this.notifyProgress(task.id, 100, 'Delete completed');
+                        console.log(`Successfully processed delete for document: ${filePath}`);
+                } catch (error) {
+                        console.error('Error in processDeleteTask:', { error, taskId: task.id, metadata: task.metadata });
+                        throw error;
+                }
+        }
 
 	private async handleTaskError(task: ProcessingTask, error: any): Promise<void> {
 		task.retryCount = (task.retryCount || 0) + 1;

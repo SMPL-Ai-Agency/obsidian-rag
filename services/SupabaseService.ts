@@ -409,7 +409,7 @@ export class SupabaseService {
 	 * Deletes document chunks for a given file status ID from the obsidian_documents table.
 	 * Improved with tracking of operation progress and verification.
 	 */
-	public async deleteDocumentChunks(fileStatusId: number): Promise<void> {
+        public async deleteDocumentChunks(fileStatusId: number): Promise<void> {
 		if (!this.client) {
 			console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
 			return;
@@ -524,39 +524,79 @@ export class SupabaseService {
 			// Clear the deletion-in-progress flag
 			this.deleteOperationsInProgress.set(fileStatusKey, false);
 		}
-	}
+        }
 
-	/**
-	 * Retrieves document chunks for a given file status ID.
-	 */
-	public async getDocumentChunks(fileStatusId: number): Promise<DocumentChunk[]> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping getDocumentChunks.');
-			return [];
-		}
-		try {
-			const { data, error } = await this.client
-				.from(this.TABLE_NAME)
-				.select('*')
-				.eq('vault_id', this.settings.vaultId)
-				.eq('file_status_id', fileStatusId)
-				.order('chunk_index');
-			if (error) throw error;
-			return data.map(row => ({
-				vault_id: row.vault_id,
-				file_status_id: row.file_status_id,
-				chunk_index: row.chunk_index,
-				content: row.content,
-				metadata: row.metadata as DocumentMetadata,
-				embedding: row.embedding,
-				vectorized_at: row.vectorized_at,
-				updated_at: row.updated_at
-			}));
-		} catch (error) {
-			console.error('Failed to get chunks:', error);
-			throw error;
-		}
-	}
+        /**
+         * Retrieves document chunks for a given file status ID.
+         */
+        public async getDocumentChunks(fileStatusId: number): Promise<DocumentChunk[]> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping getDocumentChunks.');
+                        return [];
+                }
+                try {
+                        const { data, error } = await this.client
+                                .from(this.TABLE_NAME)
+                                .select('*')
+                                .eq('vault_id', this.settings.vaultId)
+                                .eq('file_status_id', fileStatusId)
+                                .order('chunk_index');
+                        if (error) throw error;
+                        return data.map(row => ({
+                                vault_id: row.vault_id,
+                                file_status_id: row.file_status_id,
+                                chunk_index: row.chunk_index,
+                                content: row.content,
+                                metadata: row.metadata as DocumentMetadata,
+                                embedding: row.embedding,
+                                vectorized_at: row.vectorized_at,
+                                updated_at: row.updated_at
+                        }));
+                } catch (error) {
+                        console.error('Failed to get chunks:', error);
+                        throw error;
+                }
+        }
+
+        /**
+         * Fetches the file_status_id for a given file path if it exists.
+         */
+        public async getFileStatusIdByPath(filePath: string): Promise<number | null> {
+                if (!this.client) {
+                        console.warn('[MindMatrix] Supabase client not initialized while fetching file status id');
+                        return null;
+                }
+
+                try {
+                        const { data, error } = await this.client
+                                .from(this.FILE_STATUS_TABLE)
+                                .select('id')
+                                .eq('vault_id', this.settings?.vaultId)
+                                .eq('file_path', filePath)
+                                .maybeSingle();
+
+                        if (error) {
+                                if (error.code === 'PGRST116') {
+                                        return null;
+                                }
+                                console.error('[MindMatrix] Error fetching file status id:', {
+                                        error,
+                                        filePath,
+                                        vaultId: this.settings?.vaultId
+                                });
+                                throw error;
+                        }
+
+                        return data?.id ?? null;
+                } catch (error) {
+                        console.error('[MindMatrix] Unexpected error in getFileStatusIdByPath:', {
+                                error,
+                                filePath,
+                                vaultId: this.settings?.vaultId
+                        });
+                        throw error;
+                }
+        }
 
 	/**
 	 * Checks if a file has been vectorized based on the obsidian_file_status table.
