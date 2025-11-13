@@ -343,12 +343,18 @@ export class FileTracker {
 				console.log(`[ObsidianRAG] Handling file status conflict at new path ${file.path}`);
 				try {
 					// First delete the old record's chunks and wait for completion
-					console.log(`[ObsidianRAG] Deleting old chunks for file status ID: ${oldFileStatus.id}`);
-					await this.supabaseService.deleteDocumentChunks(oldFileStatus.id);
-					
-					// Then delete the existing record's chunks at the new path
-					console.log(`[ObsidianRAG] Deleting existing chunks at new path for file status ID: ${newFileStatus.id}`);
-					await this.supabaseService.deleteDocumentChunks(newFileStatus.id);
+                                        console.log(`[ObsidianRAG] Deleting old chunks for file status ID: ${oldFileStatus.id}`);
+                                        await this.supabaseService.deleteDocumentChunks(
+                                                oldFileStatus.id,
+                                                oldFileStatus.file_path || oldPath
+                                        );
+
+                                        // Then delete the existing record's chunks at the new path
+                                        console.log(`[ObsidianRAG] Deleting existing chunks at new path for file status ID: ${newFileStatus.id}`);
+                                        await this.supabaseService.deleteDocumentChunks(
+                                                newFileStatus.id,
+                                                newFileStatus.file_path || file.path
+                                        );
 					
 					// Delete the old file status
 					console.log(`[ObsidianRAG] Purging old file status record ID: ${oldFileStatus.id}`);
@@ -376,8 +382,11 @@ export class FileTracker {
 			} else {
 				try {
 					// If content changed, first delete old chunks and wait for completion
-					console.log(`[ObsidianRAG] Content changed during move, deleting old chunks for file status ID: ${oldFileStatus.id}`);
-					await this.supabaseService.deleteDocumentChunks(oldFileStatus.id);
+                                        console.log(`[ObsidianRAG] Content changed during move, deleting old chunks for file status ID: ${oldFileStatus.id}`);
+                                        await this.supabaseService.deleteDocumentChunks(
+                                                oldFileStatus.id,
+                                                oldFileStatus.file_path || oldPath
+                                        );
 					
 					// Then delete the old file status
 					console.log(`[ObsidianRAG] Purging old file status record ID: ${oldFileStatus.id}`);
@@ -428,7 +437,10 @@ export class FileTracker {
 			}
 
 			// 2. Delete old chunks if they exist
-			await this.supabaseService.deleteDocumentChunks(fileStatus.id);
+                        await this.supabaseService.deleteDocumentChunks(
+                                fileStatus.id,
+                                fileStatus.file_path || metadata.path
+                        );
 
 			// 3. Create new chunks
 			const chunks = await this.createDocumentChunks(file);

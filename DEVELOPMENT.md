@@ -79,7 +79,10 @@ Obsidian-RAG uses Jest for unit and integration tests. Most suites live in `test
     import { SupabaseService } from '../services/SupabaseService';
 
     it('removes chunks for delete tasks', async () => {
+      const fileStatusId = 42;
       const supabaseService = {
+        getFileStatusIdByPath: jest.fn().mockResolvedValue(fileStatusId),
+        getDocumentChunks: jest.fn().mockResolvedValue([]),
         deleteDocumentChunks: jest.fn().mockResolvedValue(undefined),
         updateFileStatusOnDelete: jest.fn().mockResolvedValue(undefined),
       } as Partial<SupabaseService>;
@@ -88,7 +91,7 @@ Obsidian-RAG uses Jest for unit and integration tests. Most suites live in `test
 
       await (queueService as any).processDeleteTask(task);
 
-      expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledTimes(1);
+      expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledWith(fileStatusId, 'Test.md');
       expect(supabaseService.updateFileStatusOnDelete).toHaveBeenCalledWith('Test.md');
     });
     ```

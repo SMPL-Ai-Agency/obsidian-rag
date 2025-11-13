@@ -410,116 +410,121 @@ throw error;
 		}
 	}
 
-/**
- * Deletes document chunks for a given file status ID from the shared documents table.
- * Improved with tracking of operation progress and verification.
- */
-public async deleteDocumentChunks(fileStatusId: number): Promise<void> {
-if (!this.client) {
-console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
-return;
-}
+        /**
+         * Deletes document chunks for a given file status ID from the shared documents table.
+         * Improved with tracking of operation progress and verification.
+         */
+        public async deleteDocumentChunks(fileStatusId: number, filePath?: string): Promise<void> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
+                        return;
+                }
 
-const fileStatusKey = fileStatusId.toString();
+                const guardKey = filePath || fileStatusId.toString();
+                if (!filePath) {
+                        console.warn(
+                                `[ObsidianRAG] deleteDocumentChunks called without file path. Defaulting guard key to status ID ${fileStatusId}.`
+                        );
+                }
 
-if (this.deleteOperationsInProgress.get(fileStatusKey)) {
-console.warn(`Delete operation already in progress for file status ID ${fileStatusId}. Waiting...`);
-let retryCount = 0;
-const maxRetries = 5;
-const baseDelay = 500; // ms
+                if (this.deleteOperationsInProgress.get(guardKey)) {
+                        console.warn(`Delete operation already in progress for ${filePath || `file status ID ${fileStatusId}`}. Waiting...`);
+                        let retryCount = 0;
+                        const maxRetries = 5;
+                        const baseDelay = 500; // ms
 
-while (this.deleteOperationsInProgress.get(fileStatusKey) && retryCount < maxRetries) {
-const delay = baseDelay * Math.pow(2, retryCount);
-await new Promise(resolve => setTimeout(resolve, delay));
-retryCount++;
-}
+                        while (this.deleteOperationsInProgress.get(guardKey) && retryCount < maxRetries) {
+                                const delay = baseDelay * Math.pow(2, retryCount);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                retryCount++;
+                        }
 
-if (this.deleteOperationsInProgress.get(fileStatusKey)) {
-throw new Error(`Deletion operation timeout for file status ID ${fileStatusId}`);
-}
-}
+                        if (this.deleteOperationsInProgress.get(guardKey)) {
+                                throw new Error(`Deletion operation timeout for ${filePath || `file status ID ${fileStatusId}`}`);
+                        }
+                }
 
-this.deleteOperationsInProgress.set(fileStatusKey, true);
+                this.deleteOperationsInProgress.set(guardKey, true);
 
-try {
-console.log(`Starting deletion of chunks for file status ID ${fileStatusId}`);
+                try {
+                        console.log(`Starting deletion of chunks for ${filePath || `file status ID ${fileStatusId}`}`);
 
-const { data: initialData, error: initialCountError } = await this.client
-.from(this.TABLE_NAME)
-.select('id')
-.eq('project_name', this.currentProjectName)
-.contains('metadata', { file_status_id: fileStatusId });
+                        const { data: initialData, error: initialCountError } = await this.client
+                                .from(this.TABLE_NAME)
+                                .select('id')
+                                .eq('project_name', this.currentProjectName)
+                                .contains('metadata', { file_status_id: fileStatusId });
 
-if (initialCountError) {
-console.error('Error checking existing chunks:', initialCountError);
-throw initialCountError;
-}
+                        if (initialCountError) {
+                                console.error('Error checking existing chunks:', initialCountError);
+                                throw initialCountError;
+                        }
 
-const initialCount = initialData ? initialData.length : 0;
-if (initialCount === 0) {
-return;
-}
+                        const initialCount = initialData ? initialData.length : 0;
+                        if (initialCount === 0) {
+                                return;
+                        }
 
-let retryCount = 0;
-const maxRetries = 3;
-let success = false;
+                        let retryCount = 0;
+                        const maxRetries = 3;
+                        let success = false;
 
-while (!success && retryCount < maxRetries) {
-try {
-const { error: deleteError } = await this.client
-.from(this.TABLE_NAME)
-.delete()
-.eq('project_name', this.currentProjectName)
-.contains('metadata', { file_status_id: fileStatusId });
+                        while (!success && retryCount < maxRetries) {
+                                try {
+                                        const { error: deleteError } = await this.client
+                                                .from(this.TABLE_NAME)
+                                                .delete()
+                                                .eq('project_name', this.currentProjectName)
+                                                .contains('metadata', { file_status_id: fileStatusId });
 
-if (deleteError) {
-throw deleteError;
-}
+                                        if (deleteError) {
+                                                throw deleteError;
+                                        }
 
-await new Promise(resolve => setTimeout(resolve, 500));
+                                        await new Promise(resolve => setTimeout(resolve, 500));
 
-const { data: remainingData, error: verifyError } = await this.client
-.from(this.TABLE_NAME)
-.select('id')
-.eq('project_name', this.currentProjectName)
-.contains('metadata', { file_status_id: fileStatusId });
+                                        const { data: remainingData, error: verifyError } = await this.client
+                                                .from(this.TABLE_NAME)
+                                                .select('id')
+                                                .eq('project_name', this.currentProjectName)
+                                                .contains('metadata', { file_status_id: fileStatusId });
 
-if (verifyError) {
-throw verifyError;
-}
+                                        if (verifyError) {
+                                                throw verifyError;
+                                        }
 
-const remainingCount = remainingData ? remainingData.length : 0;
-if (remainingCount === 0) {
-success = true;
-break;
-}
+                                        const remainingCount = remainingData ? remainingData.length : 0;
+                                        if (remainingCount === 0) {
+                                                success = true;
+                                                break;
+                                        }
 
-console.warn(`Deletion verification failed: ${remainingCount} chunks still exist. Retrying...`);
-retryCount++;
-await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-} catch (error) {
-console.error(`Delete attempt ${retryCount + 1} failed:`, error);
-retryCount++;
-if (retryCount < maxRetries) {
-await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-} else {
-throw error;
-}
-}
-}
+                                        console.warn(`Deletion verification failed: ${remainingCount} chunks still exist. Retrying...`);
+                                        retryCount++;
+                                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                                } catch (error) {
+                                        console.error(`Delete attempt ${retryCount + 1} failed:`, error);
+                                        retryCount++;
+                                        if (retryCount < maxRetries) {
+                                                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                                        } else {
+                                                throw error;
+                                        }
+                                }
+                        }
 
-if (!success) {
-throw new Error(`Failed to delete chunks after ${maxRetries} attempts`);
-}
+                        if (!success) {
+                                throw new Error(`Failed to delete chunks after ${maxRetries} attempts`);
+                        }
 
-console.log(`Successfully deleted chunks for file status ID ${fileStatusId}`);
-} catch (error) {
-console.error('Failed to delete chunks:', error);
-throw error;
-} finally {
-this.deleteOperationsInProgress.set(fileStatusKey, false);
-}
-}
+                        console.log(`Successfully deleted chunks for ${filePath || `file status ID ${fileStatusId}`}`);
+                } catch (error) {
+                        console.error('Failed to delete chunks:', error);
+                        throw error;
+                } finally {
+                        this.deleteOperationsInProgress.set(guardKey, false);
+                }
+        }
 
 /**
  * Retrieves document chunks for a given file status ID.
@@ -1098,10 +1103,10 @@ const { data: filesToRemove, error: queryError } = await this.client
 				return 0;
 			}
 
-const filePaths = filesToRemove.map(f => f.file_path);
-for (const record of filesToRemove) {
-await this.deleteDocumentChunks(record.id);
-}
+                        const filePaths = filesToRemove.map(f => f.file_path);
+                        for (const record of filesToRemove) {
+                                await this.deleteDocumentChunks(record.id, record.file_path);
+                        }
 
 			// Remove from obsidian_file_status table
 			const { error: statusError } = await this.client
