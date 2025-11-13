@@ -7,7 +7,7 @@
     "inlineSourceMap": true,
     "inlineSources": true,
     "module": "ESNext",
-    "target": "ES6",
+    "target": "ES2020",
     "allowJs": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
@@ -16,9 +16,9 @@
     "strictNullChecks": true,
     "lib": [
       "DOM",
-      "ES5",
-      "ES6",
-      "ES7"
+      "ES2022",
+      "ESNext.AsyncIterable",
+      "esnext.disposable"
     ]
   },
   "include": [

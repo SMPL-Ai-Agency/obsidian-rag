@@ -1,5 +1,10 @@
 import { SupabaseService } from '../services/SupabaseService';
-import { ObsidianRAGSettings } from '../settings/Settings';
+import {
+        ObsidianRAGSettings,
+        DEFAULT_HYBRID_STRATEGY,
+        DEFAULT_NEO4J_SETTINGS,
+        DEFAULT_EMBEDDING_PROVIDER_SETTINGS
+} from '../settings/Settings';
 
 async function queryTables() {
     const settings: ObsidianRAGSettings = {
@@ -8,6 +13,8 @@ async function queryTables() {
             apiKey: process.env.SUPABASE_ANON_KEY!,
             initialized: true
         },
+        neo4j: { ...DEFAULT_NEO4J_SETTINGS },
+        embeddings: { ...DEFAULT_EMBEDDING_PROVIDER_SETTINGS },
         vaultId: 'test-vault',
         lastKnownVaultName: 'Test Vault',
         openai: {
@@ -51,6 +58,8 @@ async function queryTables() {
             checkAttempts: 3,
             timeout: 30000,
             requireSync: false,
+            mode: 'supabase',
+            hybridStrategy: { ...DEFAULT_HYBRID_STRATEGY },
             deviceId: 'test-device',
             deviceName: 'Test Device',
             knownDevices: [],

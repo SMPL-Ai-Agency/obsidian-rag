@@ -3,17 +3,17 @@ import { TFile, Vault, parseYaml, stringifyYaml } from 'obsidian';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { DocumentProcessingError } from '../models/DocumentChunk';
 import {
-	SyncFileData,
-	SyncValidationResult,
-	SyncErrorType,
-	SyncState,
-	createEmptySyncFileData,
-	updateDeviceInSyncFile,
-	addConnectionEvent,
-	updateDatabaseStatus,
-	updateDeviceSyncTime,
-	trimSyncHistoryArrays,
-	SyncConflict
+SyncFileData,
+SyncValidationResult,
+SyncErrorType,
+SyncState,
+createEmptySyncFileData,
+updateDeviceInSyncFile,
+updateDatabaseStatus,
+updateDeviceSyncTime,
+trimSyncHistoryArrays,
+SyncConflict,
+ConnectionEvent
 } from '../models/SyncModels';
 
 export class SyncFileManager {
