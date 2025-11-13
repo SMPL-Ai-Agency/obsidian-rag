@@ -12,13 +12,16 @@ if you want to view the source, please visit the GitHub repository of this plugi
 const prod = (process.argv[2] === "production");
 
 const context = await esbuild.context({
-	banner: {
-		js: banner,
-	},
-	entryPoints: ["main.ts"], // Ensure this matches your main TypeScript file
-	bundle: true,
-	external: [
-		"obsidian",
+        banner: {
+                js: banner,
+        },
+        entryPoints: ["main.ts"], // Ensure this matches your main TypeScript file
+        bundle: true,
+        loader: {
+                '.png': 'dataurl'
+        },
+        external: [
+                "obsidian",
 		"electron",
 		"@codemirror/autocomplete",
 		"@codemirror/collab",

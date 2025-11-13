@@ -44,3 +44,152 @@ If your plugin does not need CSS, delete this file.
         transform: rotate(360deg);
     }
 }
+
+.obsidian-rag-mode-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.obsidian-rag-mode-pill {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--background-modifier-border);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.obsidian-rag-mode-preview-ribbon {
+    cursor: pointer;
+}
+
+.obsidian-rag-mode-preview-ribbon.has-error svg {
+    color: var(--color-red);
+}
+
+.obsidian-rag-mode-summary {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    padding: 8px 12px;
+    margin-bottom: 16px;
+}
+
+.obsidian-rag-mode-summary__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.obsidian-rag-mode-summary__row:last-child {
+    border-bottom: none;
+}
+
+.obsidian-rag-mode-summary__file {
+    font-family: var(--font-monospace);
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+.obsidian-rag-mode-recent-list {
+    list-style: none;
+    margin: 8px 0 0 0;
+    padding: 0;
+}
+
+.obsidian-rag-mode-recent {
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding: 6px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.obsidian-rag-mode-recent:last-child {
+    border-bottom: none;
+}
+
+.obsidian-rag-mode-recent.is-error {
+    color: var(--color-red);
+}
+
+.obsidian-rag-mode-recent__file {
+    font-family: var(--font-monospace);
+    color: var(--text-muted);
+}
+
+.obsidian-rag-mode-modal {
+    padding: 12px;
+}
+
+.obsidian-rag-mode-modal-summary__row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.obsidian-rag-mode-modal-list {
+    list-style: none;
+    margin: 12px 0 0 0;
+    padding: 0;
+}
+
+.obsidian-rag-mode-modal-entry {
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding: 8px 0;
+}
+
+.obsidian-rag-mode-modal-entry:last-child {
+    border-bottom: none;
+}
+
+.obsidian-rag-mode-modal-entry__header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.obsidian-rag-mode-modal-entry__file {
+    font-family: var(--font-monospace);
+    margin: 4px 0;
+}
+
+.obsidian-rag-mode-modal-entry__targets {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.obsidian-rag-mode-modal-entry__error {
+    color: var(--color-red);
+    font-size: 12px;
+}
+
+.obsidian-rag-support {
+    display: flex;
+    align-items: center;
+    gap: var(--size-m);
+    margin-bottom: 16px;
+}
+
+.obsidian-rag-support__text p {
+    margin: 0 0 4px 0;
+}
+
+.obsidian-rag-support-qr {
+    width: 140px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    padding: 6px;
+    background: var(--background-secondary);
+}

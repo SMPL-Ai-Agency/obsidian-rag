@@ -27,6 +27,7 @@ import {
 	SYSTEM_EXCLUSIONS
 } from './settings/Settings';
 import { ProcessingTask, TaskType, TaskStatus } from './models/ProcessingTask';
+import { ModePreviewManager, ModePreviewSummary, SyncOutcomeEntry } from './services/ModePreviewManager';
 
 export default class ObsidianRAGPlugin extends Plugin {
 	settings: ObsidianRAGSettings;
@@ -48,12 +49,20 @@ export default class ObsidianRAGPlugin extends Plugin {
 	private statusManager: StatusManager | null = null;
 	private syncDetectionManager: SyncDetectionManager | null = null;
 	private eventsRegistered = false;
+	private modePreviewManager: ModePreviewManager | null = null;
+	private modePreviewRibbonEl: HTMLElement | null = null;
+	private queueEventUnsubscribers: Array<() => void> = [];
 
 	async onload() {
 		console.log('Loading Obsidian RAG Plugin...');
 		try {
 			// Initialize status manager first
 			this.statusManager = new StatusManager(this.addStatusBarItem());
+			const modePreviewStatusItem = this.addStatusBarItem();
+			this.modePreviewRibbonEl = this.addRibbonIcon('database', 'View recent Obsidian RAG sync activity', () => {
+				this.modePreviewManager?.showHistoryModal();
+			});
+			this.modePreviewManager = new ModePreviewManager(this.app, modePreviewStatusItem, this.modePreviewRibbonEl);
 			this.statusManager.setStatus(PluginStatus.INITIALIZING, {
 				message: 'Loading Obsidian RAG Plugin...'
 			});
@@ -177,17 +186,20 @@ export default class ObsidianRAGPlugin extends Plugin {
 		}
 	}
 
-	async onunload() {
-		console.log('Unloading Obsidian RAG Plugin...');
+async onunload() {
+console.log('Unloading Obsidian RAG Plugin...');
 		// Stop sync detection and clear any intervals/timeouts
 		this.syncDetectionManager?.stopMonitoring();
 		if (this.initializationTimeout) clearTimeout(this.initializationTimeout);
 		if (this.syncCheckInterval) clearInterval(this.syncCheckInterval);
-		this.queueService?.stop();
-		this.notificationManager?.clear();
-		this.initialSyncManager?.stop();
-		this.eventsRegistered = false;
-	}
+this.queueService?.stop();
+this.notificationManager?.clear();
+this.initialSyncManager?.stop();
+this.queueEventUnsubscribers.forEach(unsub => unsub());
+this.queueEventUnsubscribers = [];
+this.modePreviewManager?.destroy();
+this.eventsRegistered = false;
+}
 
 	private async startSyncProcess(): Promise<void> {
 		if (!this.syncManager) throw new Error('Sync manager not initialized');
@@ -507,8 +519,8 @@ export default class ObsidianRAGPlugin extends Plugin {
 			if (!this.notificationManager) {
 				throw new Error('NotificationManager must be initialized before InitialSyncManager');
 			}
-                        this.initialSyncManager = new InitialSyncManager(
-                                this.app.vault,
+this.initialSyncManager = new InitialSyncManager(
+this.app.vault,
                                 this.queueService,
                                 this.embeddingService,
                                 this.syncManager,
@@ -530,7 +542,8 @@ export default class ObsidianRAGPlugin extends Plugin {
 					}
 				}
 			);
-			console.log('[ObsidianRAG] InitialSyncManager initialized.');
+console.log('[ObsidianRAG] InitialSyncManager initialized.');
+this.registerQueueEventObservers();
 		} catch (error) {
 			console.error('[ObsidianRAG] Error initializing services:', error);
 			this.errorHandler.handleError(error, { context: 'ObsidianRAGPlugin.initializeServices' });
@@ -557,6 +570,14 @@ export default class ObsidianRAGPlugin extends Plugin {
                         new Notice('Neo4j configuration is incomplete. Graph features are disabled until credentials are provided.');
                 }
         }
+
+	public getModePreviewSummaries(): ModePreviewSummary[] {
+		return this.modePreviewManager?.getModeSummaries() ?? [];
+	}
+
+	public getRecentSyncOutcomes(limit = 5): SyncOutcomeEntry[] {
+		return this.modePreviewManager?.getRecentOutcomes(limit) ?? [];
+	}
 
 	private registerEventHandlers() {
 		if (this.eventsRegistered) {
@@ -723,6 +744,177 @@ export default class ObsidianRAGPlugin extends Plugin {
 			this.errorHandler?.handleError(error, { context: 'queueFileProcessing', metadata: { filePath: file.path, type } });
 			if (this.settings.enableNotifications) {
 				new Notice(`Failed to queue ${file.name} for processing`);
+			}
+		}
+        }
+
+        private addCommands() {
+                this.addCommand({
+                        id: 'force-sync-current-file',
+                        name: 'Force sync current file',
+                        checkCallback: (checking: boolean) => {
+                                const file = this.app.workspace.getActiveFile();
+                                if (file) {
+                                        if (!checking) {
+                                                this.queueFileProcessing(file, TaskType.UPDATE);
+                                        }
+                                        return true;
+                                }
+                                return false;
+                        }
+                });
+
+                this.addCommand({
+                        id: 'force-sync-all-files',
+                        name: 'Force sync all files',
+                        callback: async () => {
+                                const files = this.app.vault.getMarkdownFiles();
+                                for (const file of files) {
+                                        if (this.shouldProcessFile(file)) {
+                                                await this.queueFileProcessing(file, TaskType.UPDATE);
+                                        }
+                                }
+                        }
+                });
+
+                this.addCommand({
+                        id: 'clear-sync-queue',
+                        name: 'Clear sync queue',
+                        callback: () => {
+                                this.queueService?.clear();
+                                if (this.settings.enableNotifications) {
+                                        new Notice('Sync queue cleared');
+                                }
+                        }
+                });
+
+                this.addCommand({
+                        id: 'reset-file-tracker',
+                        name: 'Reset file tracker cache',
+                        callback: async () => {
+                                this.fileTracker?.clearQueue();
+                                if (this.fileTracker && this.settings && this.supabaseService && this.queueService) {
+                                        await this.fileTracker.initialize(this.settings, this.supabaseService, this.queueService);
+                                }
+                                if (this.settings.enableNotifications) {
+                                        new Notice('File tracker cache reset');
+                                }
+                        }
+                });
+
+                this.addCommand({
+                        id: 'start-initial-sync',
+                        name: 'Start initial vault sync',
+                        callback: async () => {
+                                if (this.initialSyncManager) {
+                                        await this.initialSyncManager.startSync();
+                                } else {
+                                        new Notice('Initial sync manager not initialized');
+                                }
+                        }
+                });
+
+                this.addCommand({
+                        id: 'stop-initial-sync',
+                        name: 'Stop initial vault sync',
+                        callback: () => {
+                                this.initialSyncManager?.stop();
+                                new Notice('Initial sync stopped');
+                        }
+                });
+
+                this.addCommand({
+                        id: 'show-recent-sync-graph',
+                        name: 'Show recent sync graph overlay',
+                        callback: () => {
+                                this.openRecentSyncGraphOverlay();
+                        }
+                });
+        }
+
+        private registerQueueEventObservers(): void {
+                if (!this.queueService) {
+                        return;
+                }
+                this.queueEventUnsubscribers.forEach(unsub => unsub());
+                this.queueEventUnsubscribers = [];
+                const completedUnsub = this.queueService.on('task-completed', ({ task }: { task: ProcessingTask }) => {
+                        this.recordSyncOutcome(task, 'success');
+                });
+                const failedUnsub = this.queueService.on(
+                        'task-failed',
+                        ({ task, error }: { task: ProcessingTask; error: unknown }) => {
+                                const message = error instanceof Error ? error.message : typeof error === 'string' ? error : undefined;
+                                this.recordSyncOutcome(task, 'error', message);
+                        }
+                );
+                this.queueEventUnsubscribers.push(completedUnsub, failedUnsub);
+        }
+
+        private recordSyncOutcome(task: ProcessingTask, status: 'success' | 'error', message?: string): void {
+                if (!this.modePreviewManager) {
+                        return;
+                }
+                const timestamp = Date.now();
+                const filePath = task.metadata?.path || task.metadata?.obsidianId || task.id;
+                this.modePreviewManager.recordOutcome({
+                        id: `${task.id}-${timestamp}`,
+                        filePath,
+                        mode: this.settings.sync.mode || 'supabase',
+                        taskType: task.type,
+                        status,
+                        timestamp,
+                        message,
+                        targets: {
+                                vectors: this.shouldUseSupabase(),
+                                graph: this.shouldUseNeo4j()
+                        }
+                });
+        }
+
+        private async openRecentSyncGraphOverlay(): Promise<void> {
+                const recentOutcomes = this.getRecentSyncOutcomes(12);
+                const filePaths = Array.from(new Set(recentOutcomes.map(outcome => outcome.filePath).filter(Boolean)));
+                if (filePaths.length === 0) {
+                        new Notice('No recently synced files to visualize yet.');
+                        return;
+                }
+                const query = filePaths
+                        .slice(0, 12)
+                        .map(path => `path:"${path.replace(/"/g, '\"')}"`)
+                        .join(' OR ');
+                const executed = this.app.commands?.executeCommandById?.('graph:open');
+                if (executed === false) {
+                        new Notice('Unable to open graph view. Ensure the Graph core plugin is enabled.');
+                        return;
+                }
+                const leaves = this.app.workspace.getLeavesOfType('graph');
+                if (leaves.length === 0) {
+                        new Notice('Graph view did not open. Please enable the Graph core plugin.');
+                        return;
+                }
+                const leaf = leaves[leaves.length - 1];
+                const graphView: any = leaf.view;
+                try {
+                        if (graphView?.setQuery) {
+                                graphView.setQuery(query);
+                        } else if (graphView?.setState) {
+                                const currentState = graphView.getState?.() ?? {};
+                                graphView.setState(
+                                        {
+                                                ...currentState,
+                                                options: { ...(currentState.options ?? {}), search: query },
+                                                search: query
+                                        },
+                                        true
+                                );
+                        }
+                        this.app.workspace.revealLeaf(leaf);
+                        new Notice('Graph overlay updated with recent sync activity.', 3500);
+                } catch (error) {
+                        console.error('Failed to update graph overlay:', error);
+                        new Notice('Unable to update graph overlay. Check the console for details.');
+                }
         }
 
         private shouldUseSupabase(): boolean {
@@ -734,82 +926,4 @@ export default class ObsidianRAGPlugin extends Plugin {
                 const mode = this.settings.sync.mode || 'supabase';
                 return mode === 'neo4j' || mode === 'hybrid';
         }
-}
-	}
-
-	private addCommands() {
-		this.addCommand({
-			id: 'force-sync-current-file',
-			name: 'Force sync current file',
-			checkCallback: (checking: boolean) => {
-				const file = this.app.workspace.getActiveFile();
-				if (file) {
-					if (!checking) {
-						this.queueFileProcessing(file, TaskType.UPDATE);
-					}
-					return true;
-				}
-				return false;
-			}
-		});
-
-		this.addCommand({
-			id: 'force-sync-all-files',
-			name: 'Force sync all files',
-			callback: async () => {
-				const files = this.app.vault.getMarkdownFiles();
-				for (const file of files) {
-					if (this.shouldProcessFile(file)) {
-						await this.queueFileProcessing(file, TaskType.UPDATE);
-					}
-				}
-			}
-		});
-
-		this.addCommand({
-			id: 'clear-sync-queue',
-			name: 'Clear sync queue',
-			callback: () => {
-				this.queueService?.clear();
-				if (this.settings.enableNotifications) {
-					new Notice('Sync queue cleared');
-				}
-			}
-		});
-
-		this.addCommand({
-			id: 'reset-file-tracker',
-			name: 'Reset file tracker cache',
-			callback: async () => {
-				this.fileTracker?.clearQueue();
-				if (this.fileTracker && this.settings && this.supabaseService && this.queueService) {
-					await this.fileTracker.initialize(this.settings, this.supabaseService, this.queueService);
-				}
-				if (this.settings.enableNotifications) {
-					new Notice('File tracker cache reset');
-				}
-			}
-		});
-
-		this.addCommand({
-			id: 'start-initial-sync',
-			name: 'Start initial vault sync',
-			callback: async () => {
-				if (this.initialSyncManager) {
-					await this.initialSyncManager.startSync();
-				} else {
-					new Notice('Initial sync manager not initialized');
-				}
-			}
-		});
-
-		this.addCommand({
-			id: 'stop-initial-sync',
-			name: 'Stop initial vault sync',
-			callback: () => {
-				this.initialSyncManager?.stop();
-				new Notice('Initial sync stopped');
-			}
-		});
-	}
 }
