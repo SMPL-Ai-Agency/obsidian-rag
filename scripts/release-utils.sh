@@ -53,13 +53,38 @@ get_current_version() {
     log_info "Current version: $CURRENT_VERSION"
 }
 
+# Parse a semantic version string (allowing prerelease/build metadata)
+parse_semver() {
+    local version=$1
+    local semver_regex='^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+
+    if [[ $version =~ $semver_regex ]]; then
+        SEMVER_MAJOR="${BASH_REMATCH[1]}"
+        SEMVER_MINOR="${BASH_REMATCH[2]}"
+        SEMVER_PATCH="${BASH_REMATCH[3]}"
+        SEMVER_PRERELEASE="${BASH_REMATCH[4]}"
+        SEMVER_BUILD="${BASH_REMATCH[5]}"
+    else
+        log_error "Version '$version' is not a valid semver string"
+        exit 1
+    fi
+}
+
 # Bump version in manifest.json and package.json
 bump_version() {
     local bump_type=$1
     local current_version=$CURRENT_VERSION
-    local major minor patch
+    local major minor patch prerelease build
 
-    IFS='.' read -r major minor patch <<< "$current_version"
+    SEMVER_PRERELEASE=""
+    SEMVER_BUILD=""
+    parse_semver "$current_version"
+
+    major=$SEMVER_MAJOR
+    minor=$SEMVER_MINOR
+    patch=$SEMVER_PATCH
+    prerelease=${SEMVER_PRERELEASE:-}
+    build=${SEMVER_BUILD:-}
 
     case $bump_type in
         major)
@@ -80,7 +105,7 @@ bump_version() {
             ;;
     esac
 
-    NEW_VERSION="$major.$minor.$patch"
+    NEW_VERSION="$major.$minor.$patch$prerelease$build"
     log_info "Bumping version to $NEW_VERSION"
 
     # Update manifest.json
