@@ -1,7 +1,8 @@
-# Implementation Plan to Align with ARCHITECTURE.md
+## TASK LIST
+---
 
+
+---
 ## Important Note
 All implementation tasks must strictly follow the architecture design described in AGENTS.md
-
-## TASK LIST
 
