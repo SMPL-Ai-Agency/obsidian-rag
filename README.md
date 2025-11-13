@@ -185,7 +185,7 @@ If you encounter any issues:
 - Review existing issues for solutions  
 - See [INSTALL.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md) for troubleshooting
 
-Vibe coding was used, but Program Manangement Experiece is used to manage.
+Vibe coding was used, but Program Manangement experiece is used to manage Ai Agents creating this plugin.
 
 ---
 
