@@ -24,6 +24,7 @@ export interface DocumentMetadata {
     source?: string;
     file_id?: string;
     blobType?: string;
+    graphDocumentId?: string; // Optional ID used for graph synchronization
 }
 
 /**

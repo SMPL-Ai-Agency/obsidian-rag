@@ -56,7 +56,9 @@ describe('QueueService processDeleteTask', () => {
                                 null as unknown as EmbeddingService,
                                 errorHandler,
                                 notificationManager,
-                                {} as Vault
+                                {} as Vault,
+                                undefined,
+                                { vectorSyncEnabled: true, graphSyncEnabled: false }
                         ),
                         notificationManager
                 };
