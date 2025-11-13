@@ -98,8 +98,9 @@ The inspiration for this plugin came from watching Nate Herk's YouTube video [St
 1. **Clone the repository**
    ```bash
    git clone https://github.com/SMPL-Ai-Agency/Obsidian-RAG.git
-   cd obsidian-rag
+   cd Obsidian-RAG
    ```
+   > **Note:** macOS/Linux shells are case-sensitive; ensure you type `Obsidian-RAG` exactly as shown when changing directories.
 
 2. **Install dependencies**
    ```bash
