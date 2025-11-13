@@ -4,14 +4,24 @@ import { Notice } from 'obsidian';
 
 describe('OfflineQueueManager reconciliation', () => {
         const errorHandler = { handleError: jest.fn() } as unknown as ErrorHandler;
+        const activeManagers: OfflineQueueManager[] = [];
+        const trackManager = (manager: OfflineQueueManager) => {
+                activeManagers.push(manager);
+                return manager;
+        };
         const createManager = (supabaseService: any) => {
                 const syncFileManager = { updateSyncStatus: jest.fn() };
-                const manager = new OfflineQueueManager(errorHandler, supabaseService, syncFileManager as any);
+                const manager = trackManager(new OfflineQueueManager(errorHandler, supabaseService, syncFileManager as any));
                 return { manager, syncFileManager };
         };
 
         beforeEach(() => {
                 jest.clearAllMocks();
+        });
+
+        afterEach(() => {
+                activeManagers.forEach(manager => manager.destroy());
+                activeManagers.length = 0;
         });
 
         it('updates Supabase when queued create operations are replayed', async () => {
@@ -67,7 +77,7 @@ describe('OfflineQueueManager reconciliation', () => {
 
         it('falls back to SyncFileManager when deleting offline without Supabase connectivity', async () => {
                 const syncFileManager = { updateSyncStatus: jest.fn().mockResolvedValue(undefined) };
-                const manager = new OfflineQueueManager(errorHandler, null, syncFileManager as any);
+                const manager = trackManager(new OfflineQueueManager(errorHandler, null, syncFileManager as any));
                 const operation: OfflineOperation = {
                         id: 'op-2',
                         fileId: 'Note.md',

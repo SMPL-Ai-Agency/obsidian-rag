@@ -36,6 +36,7 @@ export class OfflineQueueManager {
         private processedSignatures: Set<string> = new Set();
         private processing: boolean = false;
         private reconnectionTimer: ReturnType<typeof setTimeout> | null = null;
+        private destroyed = false;
 
         constructor(
                 errorHandler: ErrorHandler,
@@ -55,6 +56,10 @@ export class OfflineQueueManager {
 	 * Queue an operation to be processed when connectivity is restored.
 	 */
         public async queueOperation(operation: Omit<OfflineOperation, 'id' | 'status'>): Promise<void> {
+                if (this.destroyed) {
+                        console.warn('OfflineQueueManager received queueOperation after destroy. Ignoring request.');
+                        return;
+                }
                 const signature = this.buildOperationSignature(operation);
                 if (this.processedSignatures.has(signature)) {
                         console.log('Skipping already processed offline operation:', signature);
@@ -93,11 +98,24 @@ export class OfflineQueueManager {
                 this.persistQueue();
         }
 
+        /**
+         * Gracefully stop any scheduled work and prevent further retries.
+         * This is useful when the plugin is unloaded or when tests need to
+         * release all timers to avoid open handle warnings.
+         */
+        public destroy(): void {
+                this.destroyed = true;
+                this.clearReconnectionTimer();
+        }
+
 	/**
 	 * Attempt to process all queued operations.
 	 * Should be called when connectivity is restored.
 	 */
         public async processQueue(): Promise<void> {
+                if (this.destroyed) {
+                        return;
+                }
                 if (this.processing || this.queue.length === 0) {
                         return;
                 }
@@ -137,7 +155,9 @@ export class OfflineQueueManager {
                 console.log('Offline queue reconciliation completed.');
                 this.processing = false;
                 this.persistQueue();
-                if (this.queue.some(op => op.status === 'pending')) {
+                if (this.destroyed) {
+                        this.clearReconnectionTimer();
+                } else if (this.queue.some(op => op.status === 'pending')) {
                         this.scheduleReconnectionAttempt();
                 } else {
                         this.clearReconnectionTimer();
@@ -282,6 +302,9 @@ export class OfflineQueueManager {
         }
 
         private scheduleReconnectionAttempt(immediate: boolean = false): void {
+                if (this.destroyed) {
+                        return;
+                }
                 if (this.queue.length === 0) {
                         this.clearReconnectionTimer();
                         return;
