@@ -244,5 +244,3 @@ Licensed under the **MIT License**.
 - [Task Tracking](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md)
 - [Release Artifact Checklist](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/release/RELEASE_ARTIFACTS.md)
 - [Alpha Feedback Follow-ups](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/feedback/ALPHA_FEEDBACK_ISSUES.md)
-
-> _Note:_ Standalone `DEVELOPMENT.md` and `ARCHITECTURE.md` guides have not been published yet. All developer and architecture context currently lives in this README, inline code comments, and `AGENTS.md`.
