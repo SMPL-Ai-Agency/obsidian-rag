@@ -96,12 +96,7 @@ See [INSTALL.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTAL
 - Stabilize `removeExcludedFiles` (cleanup)  
 - Performance optimizations and tests  
 
-### Upcoming 📅
-- Advanced RAG + GraphRAG search interfaces  
-- Additional file type support  
-- Developer tools and community features  
-
-See [TASKS.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md) for tracking.
+For task tracking and progress, see [TASKS.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md).
 
 ---
 
@@ -191,4 +186,5 @@ Licensed under the **MIT License**.
 - [Architecture Overview](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/ARCHITECTURE.md)  
 - [Changelog](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/CHANGELOG.md)  
 - [Task Tracking](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md)
+
 
