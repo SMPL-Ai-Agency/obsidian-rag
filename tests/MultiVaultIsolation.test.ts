@@ -105,7 +105,7 @@ file_path: metadata.obsidianId
 expect.objectContaining({ onConflict: 'vault_id,file_path' })
 );
 expect(deleteBuilder.eq).toHaveBeenCalledWith('project_name', 'vault-alpha');
-expect(deleteBuilder.contains).toHaveBeenCalledWith({ file_status_id: 42 });
+expect(deleteBuilder.contains).toHaveBeenCalledWith('metadata', { file_status_id: 42 });
 expect(insertBuilder.insert).toHaveBeenCalledWith(
 expect.arrayContaining([
 expect.objectContaining({
