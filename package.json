@@ -12,8 +12,7 @@
     "lint": "eslint . --ext .ts",
     "docs": "typedoc --options typedoc.json",
     "prompt": "bash -c 'echo \"### Prompts.md ###\\nFilename: Prompts.md\\n\" > combined_code_state.txt && cat Prompts.md | tr \"\\n\" \" \" >> combined_code_state.txt && echo \"\\n### main.ts ###\\nFilename: main.ts\\n\" >> combined_code_state.txt && cat main.ts | tr \"\\n\" \" \" >> combined_code_state.txt && for file in $(find models/ services/ settings/ utils/ constants/ sql/ -type f); do echo -e \"\\n### $file ###\\nFilename: $(basename \\\"$file\\\")\\n\"; cat \"$file\" | tr \"\\n\" \" \"; done >> combined_code_state.txt'",
-    "loc": "open .",
-    "extract": "bash extract.sh"
+    "loc": "open ."
   },
   "keywords": [
     "obsidian",
