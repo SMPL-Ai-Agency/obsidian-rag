@@ -34,9 +34,16 @@ export enum SyncState {
  */
 export interface ConnectionEvent {
     timestamp: number;
-    eventType: 'connected' | 'disconnected';
+    eventType: 'connected' | 'disconnected' | 'exclusion_update';
     deviceId: string;
     details?: string;
+}
+
+export interface SyncFileStatusEntry {
+    status: string;
+    lastModified: number;
+    hash: string;
+    updatedAt: number;
 }
 
 /**
@@ -81,6 +88,7 @@ export interface SyncFileHeader {
     pluginVersion: string;              // Plugin version that last wrote this file
     lastWriter: string;                 // Device ID that last wrote this file
     devices: Record<string, SyncDevice>; // Map of device IDs to device info
+    fileStatuses?: Record<string, SyncFileStatusEntry>;
 }
 
 /**
@@ -171,7 +179,8 @@ export function createEmptySyncFileData(
             vaultId,
             pluginVersion,
             lastWriter: deviceId,
-            devices
+            devices,
+            fileStatuses: {}
         },
         connectionEvents: [],
         pendingOperations: [],

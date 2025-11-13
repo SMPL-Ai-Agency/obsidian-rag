@@ -1,5 +1,5 @@
 //SettingsTab.ts
-import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, Modal } from 'obsidian';
 import ObsidianRAGPlugin from '../main';
 import { ObsidianRAGSettings, generateVaultId, isVaultInitialized, getUserExclusions, SYSTEM_EXCLUSIONS } from './Settings';
 import { SupabaseService } from '../services/SupabaseService';
@@ -614,29 +614,16 @@ supportText.createEl('p', { text: 'Cash App: $ObsidianRAG' });
 		});
 
 		// Reset Database Button
-		const resetButton = containerEl.createEl('button', { 
+		const resetButton = containerEl.createEl('button', {
 			text: 'Reset Database',
 			cls: 'mod-warning'
 		});
 		resetButton.onClickEvent(async () => {
-			const confirmed = await new Promise<boolean>((resolve) => {
-				const notice = new Notice('This will delete all data in the database. Are you sure?');
-				notice.setMessage('This will delete all data in the database. Are you sure?', [
-					{
-						text: 'Yes',
-						callback: () => {
-							notice.hide();
-							resolve(true);
-						}
-					},
-					{
-						text: 'No',
-						callback: () => {
-							notice.hide();
-							resolve(false);
-						}
-					}
-				]);
+			const confirmed = await this.showConfirmation({
+				title: 'Reset Database',
+				message: 'This will delete all data in the database. Are you sure?',
+				confirmLabel: 'Delete data',
+				warning: true
 			});
 
 			if (!confirmed) return;
@@ -666,35 +653,82 @@ supportText.createEl('p', { text: 'Cash App: $ObsidianRAG' });
 	}
 
 	private async showResetConfirmation(): Promise<boolean> {
-		return new Promise((resolve) => {
-			const modal = this.app.modal;
-			modal.open((modal) => {
-				modal.titleEl.setText('Reset Vault ID');
-				modal.contentEl.setText(
-					'Warning: Resetting the vault ID will disconnect this vault from its existing database entries. This operation cannot be undone. Are you sure you want to continue?'
-				);
-				modal.addButton((btn) => {
-					btn.setButtonText('Cancel').onClick(() => {
-						resolve(false);
-						modal.close();
-					});
-				});
-				modal.addButton((btn) => {
-					btn.setButtonText('Reset').setWarning().onClick(() => {
-						resolve(true);
-						modal.close();
-					});
-				});
-			});
+		return this.showConfirmation({
+			title: 'Reset Vault ID',
+			message:
+				'Warning: Resetting the vault ID will disconnect this vault from its existing database entries. This operation cannot be undone. Are you sure you want to continue?',
+			confirmLabel: 'Reset',
+			cancelLabel: 'Cancel',
+			warning: true
 		});
 	}
 
+		private showConfirmation(options: ConfirmationModalOptions): Promise<boolean> {
+		const modal = new ConfirmationModal(this.app, options);
+		return modal.openAndWait();
+		}
+
 		private updateHybridSettingsVisibility(container: HTMLElement): void {
-			if (!container) return;
-			if (this.settings.sync.mode === 'hybrid') {
-				container.removeClass('is-hidden');
-			} else {
-				container.addClass('is-hidden');
-			}
+		if (!container) return;
+		if (this.settings.sync.mode === 'hybrid') {
+		container.removeClass('is-hidden');
+		} else {
+		container.addClass('is-hidden');
 		}
 		}
+	}
+
+interface ConfirmationModalOptions {
+        title: string;
+        message: string;
+        confirmLabel?: string;
+        cancelLabel?: string;
+        warning?: boolean;
+}
+
+class ConfirmationModal extends Modal {
+        private resolvePromise?: (value: boolean) => void;
+
+        constructor(app: App, private readonly options: ConfirmationModalOptions) {
+                super(app);
+        }
+
+        openAndWait(): Promise<boolean> {
+                return new Promise(resolve => {
+                        this.resolvePromise = resolve;
+                        this.open();
+                });
+        }
+
+        onOpen(): void {
+                const { contentEl, titleEl } = this;
+                titleEl.setText(this.options.title);
+                contentEl.empty();
+                contentEl.createEl('p', { text: this.options.message });
+
+                const buttonContainer = contentEl.createDiv({ cls: 'obsidian-rag-confirmation__buttons' });
+
+                const cancelButton = buttonContainer.createEl('button', {
+                        text: this.options.cancelLabel ?? 'Cancel'
+                });
+                cancelButton.addClass('mod-cancel');
+                cancelButton.addEventListener('click', () => this.closeWith(false));
+
+                const confirmButton = buttonContainer.createEl('button', {
+                        text: this.options.confirmLabel ?? 'Confirm'
+                });
+                if (this.options.warning) {
+                        confirmButton.addClass('mod-warning');
+                }
+                confirmButton.addEventListener('click', () => this.closeWith(true));
+        }
+
+        onClose(): void {
+                this.contentEl.empty();
+        }
+
+        private closeWith(result: boolean): void {
+                this.close();
+                this.resolvePromise?.(result);
+        }
+}

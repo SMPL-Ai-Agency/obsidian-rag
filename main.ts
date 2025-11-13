@@ -1,5 +1,5 @@
 // src/main.ts
-import { Plugin, TFile, Notice } from 'obsidian';
+import { Plugin, TFile, Notice, App } from 'obsidian';
 import { SupabaseService } from './services/SupabaseService';
 import { EmbeddingService } from './services/EmbeddingService';
 import { QueueService } from './services/QueueService';
@@ -28,6 +28,12 @@ import {
 } from './settings/Settings';
 import { ProcessingTask, TaskType, TaskStatus } from './models/ProcessingTask';
 import { ModePreviewManager, ModePreviewSummary, SyncOutcomeEntry } from './services/ModePreviewManager';
+
+type AppWithCommands = App & {
+        commands?: {
+                executeCommandById?: (commandId: string) => boolean | void;
+        };
+};
 
 export default class ObsidianRAGPlugin extends Plugin {
 	settings: ObsidianRAGSettings;
@@ -879,11 +885,12 @@ this.registerQueueEventObservers();
                         new Notice('No recently synced files to visualize yet.');
                         return;
                 }
-                const query = filePaths
-                        .slice(0, 12)
-                        .map(path => `path:"${path.replace(/"/g, '\"')}"`)
-                        .join(' OR ');
-                const executed = this.app.commands?.executeCommandById?.('graph:open');
+const query = filePaths
+.slice(0, 12)
+.map(path => `path:"${path.replace(/"/g, match => '\\' + match)}"`)
+.join(' OR ');
+		const commandsApi = (this.app as AppWithCommands).commands;
+		const executed = commandsApi?.executeCommandById?.('graph:open');
                 if (executed === false) {
                         new Notice('Unable to open graph view. Ensure the Graph core plugin is enabled.');
                         return;

@@ -218,7 +218,7 @@ export class QueueService {
 				tasksByFile.get(task.id)!.push(task);
 			});
 
-			let tasksToProcess: ProcessingTask[] = [];
+const tasksToProcess: ProcessingTask[] = [];
 			for (const [fileId, fileTasks] of tasksByFile.entries()) {
 				if (fileTasks.length > 1) {
 					console.log(`Detected ${fileTasks.length} tasks for ${fileId}, resolving collisions.`);

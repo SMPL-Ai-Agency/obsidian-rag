@@ -89,6 +89,8 @@ export interface TaskProgress {
         totalChunks?: number;
         processedTokens?: number;
         totalTokens?: number;
+        processedFiles?: number;
+        totalFiles?: number;
     };
 }
 
