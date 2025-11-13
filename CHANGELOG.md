@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- _No changes yet._
+### Changed
+- Updated README.md and INSTALL.md to clarify the ingestion-only workflow, document the available command palette controls, and replace broken documentation links.
 
 ## [1.1.0-alpha] - 2025-11-13
 

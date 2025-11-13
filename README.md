@@ -39,7 +39,7 @@ These are the built-in mechanisms and core behaviors the plugin implements.
 - **Cross-device sync management:** Uses a unified sync-state file to keep multiple devices consistent.
 - **Mode-aware synchronization:** Toggle Supabase-only (vector), Neo4j-only (graph), or Hybrid writes with automatic offline detection and recovery logic.
 - **Extensible architecture:** Built with modular TypeScript services (`EmbeddingService`, `QueueService`, `SupabaseService`, etc.).
-- **n8n workflow hooks:** Provides triggers/endpoints for n8n to invoke sync, query, or embedding operations.
+- **n8n-ready metadata:** Chunk metadata (see `models/DocumentChunk.ts`) includes `file_id`, source paths, and line numbers so n8n and other automations can correlate results back to the originating note without extra lookups.
 - **Developer utilities:** Helper scripts for queries, resets, and release automation.
 
 ---
@@ -55,6 +55,20 @@ Once configured, Obsidian RAG lets you automate and extend your knowledge base:
 - **Local-first privacy mode:** Run embeddings and databases entirely offline for full data control.  
 - **Cross-device synchronization:** Keep notes and metadata consistent via a shared **sync state file**.  
 - **Offline operation:** Continue editing offline — updates queue locally and sync on reconnect.
+
+---
+
+## Command Palette Controls
+Each vault can be managed directly from the Obsidian command palette. These commands map 1:1 with the plugin logic in `main.ts`:
+
+- **Force sync current file** — Immediately queues the active note for processing (uses `queueFileProcessing`).
+- **Force sync all files** — Iterates through every markdown file and enqueues allowed ones for updates.
+- **Clear sync queue** — Flushes pending tasks from `QueueService`.
+- **Reset file tracker cache** — Rebuilds the cached metadata used for change detection.
+- **Start / Stop initial vault sync** — Manually start or cancel the bulk `InitialSyncManager` flow.
+- **Show recent sync graph overlay** — Opens the overlay fed by `recordSyncOutcome` so you can confirm recent successes/failures.
+
+Use these actions after changing settings, performing maintenance, or when you want to verify that ingestion is healthy before triggering downstream automations (n8n, Telegram bots, etc.).
 
 ---
 
@@ -208,11 +222,11 @@ Licensed under the **MIT License**.
 
 ---
 
-## Developer Documentation
-- [Installation Guide](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md)  
-- [Development Guide](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/DEVELOPMENT.md)  
-- [Architecture Overview](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/ARCHITECTURE.md)  
-- [Changelog](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/CHANGELOG.md)  
+## Documentation Index
+- [Installation Guide](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md)
+- [Changelog](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/CHANGELOG.md)
 - [Task Tracking](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md)
+- [Release Artifact Checklist](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/release/RELEASE_ARTIFACTS.md)
+- [Alpha Feedback Follow-ups](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/feedback/ALPHA_FEEDBACK_ISSUES.md)
 
-
+> _Note:_ Standalone `DEVELOPMENT.md` and `ARCHITECTURE.md` guides have not been published yet. All developer and architecture context currently lives in this README, inline code comments, and `AGENTS.md`.

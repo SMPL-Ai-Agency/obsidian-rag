@@ -60,10 +60,10 @@ Before you begin, ensure you have:
      - (Optional) Provide an OpenAI API key to enable fallback embedding generation
    - Click "Initialize Database" to create the required tables
 
-4. **Start Using**
-   - The plugin will automatically sync your notes
-   - Use the command palette to search your knowledge base
-   - Configure exclusion patterns if needed
+4. **Trigger & Verify Sync**
+   - The plugin automatically watches your vault and queues changes for ingestion.
+   - Use the command palette commands (`Force sync current file`, `Force sync all files`, `Clear sync queue`, `Reset file tracker cache`, `Start/Stop initial sync`, `Show recent sync graph overlay`) to control or validate the workflow.
+   - Configure exclusion patterns if needed to keep private folders out of Supabase/Neo4j.
 
 ### Choosing a Sync Mode
 - **Supabase:** Only vector data is written. Useful when you just need semantic search or when Neo4j is offline.
