@@ -47,6 +47,19 @@ describe('buildConnectionDetails', () => {
                         })
                 ).toThrow('Unable to determine Supabase database region');
         });
+
+        it('uses the transaction pooler username when the default port is selected', () => {
+                const password = 's3cr3t!pass';
+                const details = buildConnectionDetails({
+                        supabaseUrl: 'https://project-ref.supabase.co',
+                        supabaseDbPassword: password,
+                        regionOverride: 'us-east-1'
+                });
+
+                expect(details.connectionString).toBe(
+                        `postgresql://postgres:${encodeURIComponent(password)}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require`
+                );
+        });
 });
 
 describe('buildConnectionDetailsFromEnv', () => {

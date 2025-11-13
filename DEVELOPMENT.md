@@ -55,7 +55,9 @@ This document provides guidance for developers contributing to or extending Obsi
    - **Makefile Targets**: `make dev` runs the esbuild watcher, `make init` installs dependencies and provisions the Supabase schema, `make setup-db` replays `sql/setup.sql`, `make test-db` validates credentials, and `make reset` re-runs the SQL migrations after a wipe. There is no `make test`; use the Yarn scripts directly for linting or Jest.
 
 ## Code Style and Conventions
-- **Language**: TypeScript with strict typing (see `tsconfig.json`).
+- **Language**: TypeScript with strict typing (see `tsconfig.json`). The config enables `esnext.disposable` so `Symbol.asyncDispose`
+  is available for the `neo4j-driver` type definitions used throughout the services; do not remove it or the compiler will fail
+  on `yarn tsc --noEmit`.
 - **Linting**: ESLint (`yarn lint`) enforces formatting and best practices; there is no repository-wide Prettier config, so rely on ESLint autofix or your editor settings.
 - **Type-Checking**: Run `tsc --noEmit` if you need a stricter compile-time pass beyond what esbuild surfaces.
 - **Commits**: Follow conventional commits (e.g., `feat: add new mode toggle`, `fix: handle deletion edge case`). Keep changes atomic.

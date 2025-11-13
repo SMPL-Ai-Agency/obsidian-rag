@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { NotificationManager } from '../utils/NotificationManager';
 
 beforeAll(() => {
@@ -62,5 +62,35 @@ describe('NotificationManager entity preview controls', () => {
                         entities: [{ name: 'Project Borealis', type: 'project' }]
                 });
                 expect(statusBarEl.querySelector('.obsidian-rag-entity-preview')).toBeNull();
+        });
+
+        it('opens the previewed note when the action button is clicked', () => {
+                const app = {
+                        vault: {
+                                getAbstractFileByPath: jest.fn()
+                        },
+                        workspace: {
+                                openLinkText: jest.fn().mockResolvedValue(undefined)
+                        }
+                } as unknown as App;
+                const statusBarEl = document.createElement('div');
+                const manager = new NotificationManager(app, statusBarEl, true, false, true);
+                const mockFile = Object.create(TFile.prototype ?? {}) as TFile;
+                (app.vault.getAbstractFileByPath as jest.Mock).mockReturnValue(mockFile);
+
+                manager.updateEntityPreview({
+                        notePath: 'Daily/Today.md',
+                        entities: [{ name: 'Daily Review', type: 'note' }]
+                });
+
+                const actionButton = statusBarEl.querySelector(
+                        '.obsidian-rag-entity-preview__action'
+                ) as HTMLButtonElement | null;
+                expect(actionButton).not.toBeNull();
+                expect(actionButton?.disabled).toBe(false);
+
+                actionButton?.click();
+                expect(app.vault.getAbstractFileByPath).toHaveBeenCalledWith('Daily/Today.md');
+                expect(app.workspace.openLinkText).toHaveBeenCalledWith('Daily/Today.md', '', false);
         });
 });

@@ -18,10 +18,10 @@ export interface ConnectionDetails {
 }
 
 function ensureValue(value: string | undefined, name: string): string {
-        if (!value) {
-                throw new Error(`Missing required environment variable \"${name}\". Please update your .env file.`);
-        }
-        return value;
+if (!value) {
+throw new Error(`Missing required environment variable "${name}". Please update your .env file.`);
+}
+return value;
 }
 
 export function extractProjectRef(supabaseUrl: string): string {
@@ -116,7 +116,7 @@ export function buildConnectionDetails(options: ConnectionOptions): ConnectionDe
         }
 
         const encodedPassword = encodeURIComponent(options.supabaseDbPassword);
-        const connectionString = `postgresql://postgres.${projectRef}:${encodedPassword}@${host}:${port}/postgres?sslmode=require`;
+const connectionString = `postgresql://postgres:${encodedPassword}@${host}:${port}/postgres?sslmode=require`;
 
         return {
                 projectRef,
