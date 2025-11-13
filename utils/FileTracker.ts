@@ -86,11 +86,11 @@ export class FileTracker {
 	 * Initialize the file tracker.
 	 * If a Supabase service is available, reconcile the database with the local sync file.
 	 */
-	public async initialize(settings: ObsidianRAGSettings, supabaseService: SupabaseService, queueService: QueueService): Promise<void> {
-		console.log('[FileTracker.initialize] Starting FileTracker initialization');
-		this.settings = settings;
-		this.supabaseService = supabaseService;
-		this.queueService = queueService;
+        public async initialize(settings: ObsidianRAGSettings, supabaseService: SupabaseService | null, queueService: QueueService): Promise<void> {
+                console.log('[FileTracker.initialize] Starting FileTracker initialization');
+                this.settings = settings;
+                this.supabaseService = supabaseService;
+                this.queueService = queueService;
 
 		// Get sync file path
 		const syncFilePath = this.settings.sync.syncFilePath || '_obsidianragsync.md';

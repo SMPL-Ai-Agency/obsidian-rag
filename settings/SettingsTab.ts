@@ -91,18 +91,102 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 						new Notice('Supabase URL updated.');
 					})
 			);
-		new Setting(containerEl)
-			.setName('Supabase API Key')
-			.setDesc('Your Supabase API key (found in your Supabase dashboard).')
-			.addText(text =>
-				text.setPlaceholder('Enter your API key')
-					.setValue(this.settings.supabase.apiKey)
-					.onChange(async (value) => {
-						this.settings.supabase.apiKey = value;
-						await this.plugin.saveSettings();
-						new Notice('Supabase API key updated.');
-					})
-			);
+                new Setting(containerEl)
+                        .setName('Supabase API Key')
+                        .setDesc('Your Supabase API key (found in your Supabase dashboard).')
+                        .addText(text =>
+                                text.setPlaceholder('Enter your API key')
+                                        .setValue(this.settings.supabase.apiKey)
+                                        .onChange(async (value) => {
+                                                this.settings.supabase.apiKey = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Supabase API key updated.');
+                                        })
+                        );
+
+                // Sync Mode Section
+                containerEl.createEl('h2', { text: 'Sync Mode' });
+                new Setting(containerEl)
+                        .setName('Data Sync Mode')
+                        .setDesc('Choose which backend should be updated during sync operations.')
+                        .addDropdown(dropdown =>
+                                dropdown
+                                        .addOption('supabase', 'Supabase (Vector)')
+                                        .addOption('neo4j', 'Neo4j (Graph)')
+                                        .addOption('hybrid', 'Hybrid (Both)')
+                                        .setValue(this.settings.sync.mode || 'supabase')
+                                        .onChange(async value => {
+                                                this.settings.sync.mode = value as 'supabase' | 'neo4j' | 'hybrid';
+                                                await this.plugin.saveSettings();
+                                                new Notice('Sync mode updated.');
+                                        })
+                        );
+
+                // Neo4j Settings Section
+                containerEl.createEl('h2', { text: 'Neo4j Configuration' });
+                new Setting(containerEl)
+                        .setName('Neo4j URL')
+                        .setDesc('Bolt URL to your Neo4j instance (e.g., bolt://localhost:7687).')
+                        .addText(text =>
+                                text.setPlaceholder('bolt://localhost:7687')
+                                        .setValue(this.settings.neo4j.url)
+                                        .onChange(async value => {
+                                                this.settings.neo4j.url = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Neo4j URL updated.');
+                                        })
+                        );
+                new Setting(containerEl)
+                        .setName('Neo4j Username')
+                        .setDesc('Database username used for authentication.')
+                        .addText(text =>
+                                text.setPlaceholder('neo4j')
+                                        .setValue(this.settings.neo4j.username)
+                                        .onChange(async value => {
+                                                this.settings.neo4j.username = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Neo4j username updated.');
+                                        })
+                        );
+                new Setting(containerEl)
+                        .setName('Neo4j Password')
+                        .setDesc('Password for the provided user account.')
+                        .addText(text => {
+                                const control = text
+                                        .setPlaceholder('password')
+                                        .setValue(this.settings.neo4j.password)
+                                        .onChange(async value => {
+                                                this.settings.neo4j.password = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Neo4j password updated.');
+                                        });
+                                control.inputEl.type = 'password';
+                                return control;
+                        });
+                new Setting(containerEl)
+                        .setName('Neo4j Database')
+                        .setDesc('Target database name inside your Neo4j instance.')
+                        .addText(text =>
+                                text.setPlaceholder('neo4j')
+                                        .setValue(this.settings.neo4j.database)
+                                        .onChange(async value => {
+                                                this.settings.neo4j.database = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Neo4j database updated.');
+                                        })
+                        );
+                new Setting(containerEl)
+                        .setName('Project Name')
+                        .setDesc('Used to namespace documents inside the graph so multiple vaults can share a database.')
+                        .addText(text =>
+                                text.setPlaceholder('obsidian-rag')
+                                        .setValue(this.settings.neo4j.projectName)
+                                        .onChange(async value => {
+                                                this.settings.neo4j.projectName = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Neo4j project name updated.');
+                                        })
+                        );
 
                 // Embedding Provider Settings Section
                 containerEl.createEl('h2', { text: 'Embeddings' });

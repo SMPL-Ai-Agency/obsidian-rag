@@ -67,6 +67,14 @@ export const DEFAULT_OLLAMA_SETTINGS: OllamaSettings = {
         fallbackToOpenAI: true,
 };
 
+export const DEFAULT_NEO4J_SETTINGS: Neo4jSettings = {
+        url: 'bolt://localhost:7687',
+        username: 'neo4j',
+        password: '',
+        database: 'neo4j',
+        projectName: 'obsidian-rag',
+};
+
 export const DEFAULT_EMBEDDING_PROVIDER_SETTINGS: EmbeddingProviderSettings = {
         ollama: { ...DEFAULT_OLLAMA_SETTINGS },
         openai: { ...DEFAULT_OPENAI_SETTINGS },
@@ -77,11 +85,24 @@ export const DEFAULT_EMBEDDING_PROVIDER_SETTINGS: EmbeddingProviderSettings = {
  */
 export interface SupabaseSettings {
         url: string;              // Supabase project URL
-	apiKey: string;          // Supabase API key
-	initialized?: boolean;    // Whether database is initialized
-	lastSetupAttempt?: number; // Timestamp of last setup attempt
-	setupRetries?: number;    // Number of setup attempts
+        apiKey: string;          // Supabase API key
+        initialized?: boolean;    // Whether database is initialized
+        lastSetupAttempt?: number; // Timestamp of last setup attempt
+        setupRetries?: number;    // Number of setup attempts
 }
+
+/**
+ * Neo4j graph database settings
+ */
+export interface Neo4jSettings {
+        url: string;              // Bolt URL for the Neo4j instance
+        username: string;         // Username for Neo4j authentication
+        password: string;         // Password for Neo4j authentication
+        database: string;         // Target Neo4j database name
+        projectName: string;      // Logical project name used to isolate nodes
+}
+
+export type SyncMode = 'supabase' | 'neo4j' | 'hybrid';
 
 /**
  * Processing queue settings
@@ -116,15 +137,16 @@ export interface DeviceInfo {
  * Enhanced sync settings with cross-device coordination
  */
 export interface SyncSettings {
-	syncFilePath: string;           // Path to the sync file
-	backupInterval: number;         // Time between backups (ms)
-	checkInterval: number;          // Time between sync checks (ms)
-	checkAttempts: number;          // Number of sync check attempts
-	timeout: number;                // Timeout for sync operations (ms)
-	requireSync: boolean;           // Whether sync is required before startup
-	// New cross-device settings
-	deviceId: string;               // Unique identifier for current device
-	deviceName: string;             // User-configurable device name
+        syncFilePath: string;           // Path to the sync file
+        backupInterval: number;         // Time between backups (ms)
+        checkInterval: number;          // Time between sync checks (ms)
+        checkAttempts: number;          // Number of sync check attempts
+        timeout: number;                // Timeout for sync operations (ms)
+        requireSync: boolean;           // Whether sync is required before startup
+        mode: SyncMode;                 // Determines whether Supabase, Neo4j, or both are used
+        // New cross-device settings
+        deviceId: string;               // Unique identifier for current device
+        deviceName: string;             // User-configurable device name
 	knownDevices: DeviceInfo[];     // Information about all known devices
 	connectionCheckInterval: number; // How often to check database connection
 	offlineQueueEnabled: boolean;   // Whether to queue operations when offline
@@ -164,6 +186,7 @@ export interface ObsidianRAGSettings {
         lastKnownVaultName: string;  // Last known name of the vault
         // API Configuration
         supabase: SupabaseSettings;  // Supabase configuration
+        neo4j: Neo4jSettings;        // Neo4j configuration
         openai?: OpenAISettings;     // Deprecated: OpenAI configuration (kept for backward compatibility)
         embeddings: EmbeddingProviderSettings; // Embedding provider configuration
 	// Processing settings
@@ -257,6 +280,7 @@ export const DEFAULT_SETTINGS: ObsidianRAGSettings = {
                 lastSetupAttempt: 0,
                 setupRetries: 0,
         },
+        neo4j: { ...DEFAULT_NEO4J_SETTINGS },
         openai: { ...DEFAULT_OPENAI_SETTINGS },
         embeddings: {
                 ollama: { ...DEFAULT_OLLAMA_SETTINGS },
@@ -286,18 +310,19 @@ export const DEFAULT_SETTINGS: ObsidianRAGSettings = {
 	enableAutoSync: true,
 	enableNotifications: true,
 	enableProgressBar: true,
-	sync: {
-		syncFilePath: '_obsidianragsync.md',
-		backupInterval: 3600000,  // 1 hour in milliseconds
-		checkInterval: 300000,    // 5 minutes in milliseconds
-		checkAttempts: 3,
-		timeout: 40000,
-		requireSync: true,
-		deviceId: generateDeviceId(),
-		deviceName: `Device-${Math.floor(Math.random() * 1000)}`,
-		knownDevices: [],
-		connectionCheckInterval: 60000, // 1 minute
-		offlineQueueEnabled: true,
+        sync: {
+                syncFilePath: '_obsidianragsync.md',
+                backupInterval: 3600000,  // 1 hour in milliseconds
+                checkInterval: 300000,    // 5 minutes in milliseconds
+                checkAttempts: 3,
+                timeout: 40000,
+                requireSync: true,
+                mode: 'supabase',
+                deviceId: generateDeviceId(),
+                deviceName: `Device-${Math.floor(Math.random() * 1000)}`,
+                knownDevices: [],
+                connectionCheckInterval: 60000, // 1 minute
+                offlineQueueEnabled: true,
 		conflictResolutionStrategy: 'newest-wins'
 	},
 	initialSync: {
