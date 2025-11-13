@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { SupabaseService } from '../services/SupabaseService';
 import {
         ObsidianRAGSettings,
@@ -8,11 +9,34 @@ import {
         DEFAULT_UPDATE_BEHAVIOR
 } from '../settings/Settings';
 
+/**
+ * Simple utility script to inspect the Supabase tables used by Obsidian-RAG.
+ *
+ * Required environment variables:
+ * - SUPABASE_URL: Supabase project URL.
+ * - SUPABASE_ANON_KEY: Supabase anon/public API key with read permissions.
+ * - OPENAI_API_KEY: Required when the embedding provider falls back to OpenAI.
+ */
+
+function requireEnvVar(name: string): string {
+        const value = process.env[name];
+        if (!value) {
+                throw new Error(
+                        `Missing required environment variable "${name}". ` +
+                                'Please create a .env file (or export the variable) before running scripts/query_tables.ts.'
+                );
+        }
+        return value;
+}
+
 async function queryTables() {
+        const supabaseUrl = requireEnvVar('SUPABASE_URL');
+        const supabaseAnonKey = requireEnvVar('SUPABASE_ANON_KEY');
+
         const settings: ObsidianRAGSettings = {
                 supabase: {
-                        url: process.env.SUPABASE_URL!,
-                        apiKey: process.env.SUPABASE_ANON_KEY!,
+                        url: supabaseUrl,
+                        apiKey: supabaseAnonKey,
                         initialized: true
                 },
                 neo4j: { ...DEFAULT_NEO4J_SETTINGS },
