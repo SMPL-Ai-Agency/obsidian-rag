@@ -1371,72 +1371,23 @@ return [];
 		}
 	}
 
-	/**
-	 * Creates document chunks with file_status_id
-	 */
-public async createDocumentChunks(fileStatusId: number, chunks: DocumentChunk[]): Promise<void> {
-if (!this.client) {
-console.warn('Supabase client is not initialized. Skipping createDocumentChunks.');
-return;
-}
-try {
-const chunkRecords = chunks.map(chunk => this.buildDocumentRow(fileStatusId, chunk));
-
-const { error } = await this.client.from(this.TABLE_NAME).insert(chunkRecords);
-if (error) throw error;
-} catch (error) {
-			console.error('Failed to create chunks:', error);
-			throw error;
-		}
-	}
-
-}
-
-private get currentProjectName(): string {
-if (!this.settings.vaultId) {
-throw new Error('Vault ID is not initialized');
-}
-return this.settings.vaultId;
-}
-
-private buildDocumentRow(fileStatusId: number, chunk: DocumentChunk) {
-const now = new Date().toISOString();
-const metadata = {
-...chunk.metadata,
-vault_id: this.settings.vaultId,
-file_status_id: fileStatusId,
-chunk_index: chunk.chunk_index,
-vectorized_at: chunk.vectorized_at || now,
-updated_at: chunk.updated_at || now,
-};
-return {
-content: chunk.content,
-metadata,
-embedding: chunk.embedding && chunk.embedding.length > 0 ? chunk.embedding : null,
-project_name: this.currentProjectName,
-};
-}
-
-private mapRowToDocumentChunk(row: any): DocumentChunk {
-const metadata = (row.metadata || {}) as DocumentMetadata & {
-chunk_index?: number;
-file_status_id?: number;
-vault_id?: string;
-vectorized_at?: string;
-updated_at?: string;
-};
-return {
-id: row.id,
-vault_id: metadata.vault_id || this.settings.vaultId!,
-file_status_id: Number(metadata.file_status_id ?? 0),
-chunk_index: metadata.chunk_index ?? 0,
-content: row.content,
-metadata,
-embedding: row.embedding || [],
-vectorized_at: metadata.vectorized_at || new Date().toISOString(),
-created_at: row.created_at,
-updated_at: row.updated_at || metadata.updated_at,
-};
+        /**
+         * Creates document chunks with file_status_id
+         */
+        public async createDocumentChunks(fileStatusId: number, chunks: DocumentChunk[]): Promise<void> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping createDocumentChunks.');
+                        return;
+                }
+                try {
+                        const chunkRecords = chunks.map(chunk => this.buildDocumentRow(fileStatusId, chunk));
+                        const { error } = await this.client.from(this.TABLE_NAME).insert(chunkRecords);
+                        if (error) throw error;
+                } catch (error) {
+                        console.error('Failed to create chunks:', error);
+                        throw error;
+                }
+        }
 
         public async upsertEntityRecord(entityData: SupabaseEntityRecord): Promise<void> {
                 if (!this.client) {
@@ -1450,5 +1401,4 @@ updated_at: row.updated_at || metadata.updated_at,
                         throw new Error(`Entity upsert failed: ${error.message}`);
                 }
         }
-
 }

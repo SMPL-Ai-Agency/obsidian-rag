@@ -6,19 +6,19 @@
     },
     "inlineSourceMap": true,
     "inlineSources": true,
-    "module": "ESNext",
+    "module": "commonjs",
     "target": "ES2020",
     "allowJs": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
+    "esModuleInterop": true,
     "importHelpers": true,
     "isolatedModules": true,
     "strictNullChecks": true,
     "lib": [
-      "DOM",
-      "ES2022",
-      "ESNext.AsyncIterable",
-      "esnext.disposable"
+      "es2022",
+      "esnext.asynciterable",
+      "dom"
     ]
   },
   "include": [
