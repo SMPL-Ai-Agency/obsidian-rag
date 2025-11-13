@@ -3,6 +3,10 @@ import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
 import ObsidianRAGPlugin from '../main';
 import { ObsidianRAGSettings, generateVaultId, isVaultInitialized, getUserExclusions, SYSTEM_EXCLUSIONS } from './Settings';
 import { SupabaseService } from '../services/SupabaseService';
+import { describeSyncMode } from '../services/ModePreviewManager';
+
+const CASH_APP_QR_DATA_URI =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADwAQAAAAAWLtQ/AAACI0lEQVR4nO2ZQY6bQBBFX7kt4SgLuEH7BjlCkxPkDDlHpDHkRrlB+xjZwTKLkZodloCfBc5k51gzUtIorhXwFvxWV/UvChO3YneTPvAD/xcYSRHAlMCNXgulGgAnKWPlOwBJauYK5rJjx1CbJGUh7W1YZjUu+UZjXy9FgtmsyULaXbg8N/PBt1DG3KS9Cc+VX9PrUv31d78amxRxqW/cYLWNQ43TWuP/XNrbsJlZM1ewx8e5TMjMLAtpN0IvkcCpCxS/H2V/5N4ISXEpUmiVvJwUTZKmUk3mC0NStBFOUgdFd7XDdRk5K78DBx0IZhW44ch8gNPFn7dQJZEihcWpO4GPFIqQfzLdg5dLdd4xHNHYn2wcalN/ZJ+DtBux9oplfAJwI0FKmDZfJXsAW4ZPH93zh25+L3ZLqXb/TPuvpd3jJRSKT04dTl0wpbC45DdeJauXUEabrjcaAZd8k3muIUkLpTQBFB1AaJU4Za78Dnw29fVXAA1HKBIyr9y9ZAcEO8AT+MYOPtpQnRfXH5kykPZ6vBbGtdFqdD2RodxEKxmAsMxmv76ogiZ6y9wF7zPJ60CFQlogtBObOLiiJLWSGqkLQNCE30Iy3YrVS9ZdkJPiryrZjkm61Nt86OsdhAX6jc+49i9Xc+U/n+jh4r81DKHbT1krX+cO14GKuISow1DbVHbttr1kbYIB+1L5xorvx+Xdj087gMy3xB5/eh74gf+AfwLsyHJA2zVb7wAAAABJRU5ErkJggg==';
 
 export class ObsidianRAGSettingsTab extends PluginSettingTab {
 	plugin: ObsidianRAGPlugin;
@@ -122,6 +126,60 @@ this.settings.sync.mode = value as 'supabase' | 'neo4j' | 'hybrid';
 await this.plugin.saveSettings();
 new Notice('Sync mode updated.');
 this.updateHybridSettingsVisibility(hybridSettingsContainer);
+
+				// Recent Sync Activity Preview
+		containerEl.createEl('h2', { text: 'Recent Sync Activity' });
+		const previewSection = containerEl.createDiv('obsidian-rag-mode-summary');
+		const modeSummaries = this.plugin.getModePreviewSummaries();
+		if (modeSummaries.length === 0) {
+			previewSection.createEl('p', { text: 'No sync activity recorded yet. Trigger a sync to populate this preview.' });
+		} else {
+			modeSummaries.forEach(summary => {
+				const row = previewSection.createEl('div', { cls: 'obsidian-rag-mode-summary__row' });
+				row.createEl('span', { text: describeSyncMode(summary.mode) });
+				row.createEl('span', {
+					text: `${summary.successes} success${summary.successes === 1 ? '' : 'es'} / ${summary.failures} failure${summary.failures === 1 ? '' : 's'}`
+				});
+				if (summary.lastFile) {
+					row.createEl('span', { cls: 'obsidian-rag-mode-summary__file', text: summary.lastFile });
+				}
+			});
+			const recentList = previewSection.createEl('ul', { cls: 'obsidian-rag-mode-recent-list' });
+			this.plugin.getRecentSyncOutcomes(5).forEach(outcome => {
+				const item = recentList.createEl('li', { cls: `obsidian-rag-mode-recent is-${outcome.status}` });
+				item.createEl('span', { text: new Date(outcome.timestamp).toLocaleString() });
+				item.createEl('span', { text: `${describeSyncMode(outcome.mode)} · ${outcome.taskType}` });
+				item.createEl('span', { cls: 'obsidian-rag-mode-recent__file', text: outcome.filePath });
+			});
+		}
+		this.updateHybridSettingsVisibility(hybridSettingsContainer);
+
+
+		// Recent Sync Activity Preview
+		containerEl.createEl('h2', { text: 'Recent Sync Activity' });
+		const previewSection = containerEl.createDiv('obsidian-rag-mode-summary');
+		const modeSummaries = this.plugin.getModePreviewSummaries();
+		if (modeSummaries.length === 0) {
+		previewSection.createEl('p', { text: 'No sync activity recorded yet. Trigger a sync to populate this preview.' });
+} else {
+		modeSummaries.forEach(summary => {
+			const row = previewSection.createEl('div', { cls: 'obsidian-rag-mode-summary__row' });
+			row.createEl('span', { text: describeSyncMode(summary.mode) });
+row.createEl('span', {
+text: `${summary.successes} success${summary.successes === 1 ? '' : 'es'} / ${summary.failures} failure${summary.failures === 1 ? '' : 's'}`
+});
+			if (summary.lastFile) {
+row.createEl('span', { cls: 'obsidian-rag-mode-summary__file', text: summary.lastFile });
+}
+});
+		const recentList = previewSection.createEl('ul', { cls: 'obsidian-rag-mode-recent-list' });
+		this.plugin.getRecentSyncOutcomes(5).forEach(outcome => {
+			const item = recentList.createEl('li', { cls: `obsidian-rag-mode-recent is-${outcome.status}` });
+			item.createEl('span', { text: new Date(outcome.timestamp).toLocaleString() });
+item.createEl('span', { text: `${describeSyncMode(outcome.mode)} · ${outcome.taskType}` });
+item.createEl('span', { cls: 'obsidian-rag-mode-recent__file', text: outcome.filePath });
+});
+}
 })
 );
 
@@ -535,6 +593,17 @@ this.updateHybridSettingsVisibility(hybridSettingsContainer);
 		// Database Management Section
 		containerEl.createEl('h2', { text: 'Database Management' });
 
+		// Support Development (Optional)
+		containerEl.createEl('h2', { text: 'Support Development (Optional)' });
+		const supportSection = containerEl.createDiv('obsidian-rag-support');
+		const supportText = supportSection.createDiv('obsidian-rag-support__text');
+		supportText.createEl('p', { text: 'Enjoying Obsidian RAG? Tips help keep new features and fixes flowing.' });
+supportText.createEl('p', { text: 'Cash App: $ObsidianRAG' });
+                supportSection.createEl('img', {
+                        cls: 'obsidian-rag-support-qr',
+                        attr: { src: CASH_APP_QR_DATA_URI, alt: 'Cash App QR code' }
+                });
+
 		// Database Status
 		const statusContainer = containerEl.createDiv('database-status-container');
 		const statusText = statusContainer.createEl('p', { text: 'Checking database status...' });
@@ -656,4 +725,4 @@ this.updateHybridSettingsVisibility(hybridSettingsContainer);
 				container.addClass('is-hidden');
 			}
 		}
-}
+		}

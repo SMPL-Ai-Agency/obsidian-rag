@@ -18,6 +18,7 @@ import { EntityExtractor } from './EntityExtractor';
 import { DEFAULT_CHUNKING_OPTIONS, DEFAULT_HYBRID_STRATEGY, HybridStrategySettings, SyncMode } from '../settings/Settings';
 import { HybridRAGService } from './HybridRAGService';
 import { EventEmitter } from './EventEmitter';
+import { QueueEventTypes, QueueEventCallback } from '../models/QueueEvents';
 
 interface QueueIntegrationOptions {
         vectorSyncEnabled?: boolean;
@@ -712,12 +713,12 @@ export class QueueService {
 	 * @param eventName The event to subscribe to.
 	 * @param callback The callback function.
 	 */
-	public on<T extends keyof any>(eventName: T, callback: (data: any) => void): () => void {
-		return this.eventEmitter.on(eventName as any, callback);
-	}
-}
+        public on<T extends keyof QueueEventTypes>(eventName: T, callback: QueueEventCallback<T>): () => void {
+                return this.eventEmitter.on(eventName, callback);
+        }
 
-	public updateHybridPreferences(strategy: HybridStrategySettings, mode: SyncMode): void {
-		this.hybridRAGService.updateStrategy(strategy);
-		this.syncMode = mode;
-	}
+        public updateHybridPreferences(strategy: HybridStrategySettings, mode: SyncMode): void {
+                this.hybridRAGService.updateStrategy(strategy);
+                this.syncMode = mode;
+        }
+}
