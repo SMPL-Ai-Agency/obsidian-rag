@@ -1,6 +1,6 @@
 # AGENTS.md: Guidance for AI Coding for Ai templates, OpenAI Codex, GitHub Copilot, Cursor, and others that support AEGENTS.md file empplemtations
 
-This file provides unified instructions for AI agents assisting with Obsidian-RAG, an Obsidian plugin forked from the GitHub MindMatrix Obsidian project, but now a distinct codebase and standalone repo project.
+This is the CORE AGENTS.md file that provides unified instructions for AI agents assisting with Obsidian-RAG, an Obsidian plugin forked from the GitHub MindMatrix Obsidian project, but now a distinct codebase and standalone repo project.
 
 Obsidian-RAG syncs notes from multi-vaults to Supabase (pgvector embeddings) and Neo4j (graphs) for privacy-focused Hybrid RAG workflows. Ingestion-only—no in-app querying. Prioritize Ollama for local embeddings, offline resilience, and extensibility.
 
